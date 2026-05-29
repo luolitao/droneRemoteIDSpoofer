@@ -1,6 +1,5 @@
 """Verify sniff_gb.py can decode our payload."""
-from sniff_gb import decode_message_pack
-from drone_rid_spoofer.transport.gb import _build_gb_payload
+from drone_rid_spoofer.odid_encoding import build_message_pack, decode_message_pack
 from drone_rid_spoofer.state import DroneState
 
 drone = DroneState(
@@ -13,7 +12,7 @@ drone = DroneState(
     pressure_altitude=118.0, geodetic_altitude=120.0, height=60.0,
 )
 
-payload = _build_gb_payload(drone, 0)
+payload = build_message_pack(drone, 0)
 print(f"Payload: {len(payload)} bytes")
 
 # Parse same way as sniff_gb: skip counter, then parse MessagePack header

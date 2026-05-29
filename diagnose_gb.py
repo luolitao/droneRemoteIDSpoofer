@@ -10,7 +10,7 @@ sys.path.insert(0, '.')
 
 from scapy.all import RadioTap, Dot11, Dot11Beacon, Dot11Elt
 from drone_rid_spoofer.state import DroneState
-from drone_rid_spoofer.transport.gb import _build_gb_payload
+from drone_rid_spoofer.odid_encoding import build_message_pack
 
 
 drone = DroneState(
@@ -34,7 +34,7 @@ SUPPORTED_RATES = b'\x8c'
 CAPABILITY = 0x2004  # byte-swapped: Scapy !H → wire 20 04 → le16 0x0420
 MAC_ADDR = drone.mac_address
 
-gb_payload = _build_gb_payload(drone)
+gb_payload = build_message_pack(drone, 0)
 ssid = (SSID_PREFIX + drone.serial.decode('ascii', errors='replace'))[:32]
 vendor_data = OUI + bytes([OUI_TYPE]) + gb_payload
 

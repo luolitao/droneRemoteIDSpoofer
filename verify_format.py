@@ -1,6 +1,6 @@
 """Verify our encoding matches the opendroneid pcap format."""
 from drone_rid_spoofer.state import DroneState
-from drone_rid_spoofer.transport.gb import _build_gb_payload, _encode_basic_id_message, _encode_location_message, _encode_self_id_message
+from drone_rid_spoofer.odid_encoding import build_message_pack, encode_basic_id, encode_location, encode_self_id
 
 # Build our drone
 drone = DroneState(
@@ -13,7 +13,7 @@ drone = DroneState(
     pressure_altitude=118.0, geodetic_altitude=120.0, height=60.0,
 )
 
-payload = _build_gb_payload(drone, 34)  # counter=34 like pcap
+payload = build_message_pack(drone, 34)  # counter=34 like pcap
 print(f"Our payload ({len(payload)} bytes):")
 print(f"  {payload.hex()}")
 

@@ -33,11 +33,15 @@ except ImportError:
     print("Scapy not installed. Install with: pip install scapy")
     sys.exit(1)
 
+# Import shared ODID decoder
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from drone_rid_spoofer.odid_encoding import decode_message_pack
+
 # ── Constants ──────────────────────────────────────────────────────
 OUI_ASTM_GB = b'\xfa\x0b\xbc'
 OUI_TYPE_EXPECTED = 0x0D
 
-# TLV tags (GB 46750)
+# TLV tags (legacy GB 46750)
 TLV_NAMES = {
     0x01: "Version",
     0x02: "Identifier",
@@ -68,121 +72,6 @@ class Stats:
 
 
 stats = Stats()
-
-
-# ── Message Pack Decoder (ASTM F3411) ──────────────────────────────
-def decode_message_pack(data: bytes, msg_count: int, msg_size: int) -> Optional[dict]:
-    """Decode ASTM F3411 ODID Message Pack payload (matching opendroneid.h structs).
-
-    'data' is the Message Pack body starting after the 3-byte header:
-      [MessageType|ProtoVersion(1)][SingleMsgSize(1)][MsgPackSize(1)]
-
-    Returns a flat dict of all decoded fields across all messages.
-    """
-    fields = {}
-    offset = 0  # data already starts at the first message
-
-    for i in range(msg_count):
-        if offset + msg_size > len(data):
-            return None
-        msg = data[offset:offset + msg_size]
-        offset += msg_size
-
-        # Byte 0: MessageType(4b)|ProtoVersion(4b)
-        msg_type = msg[0] >> 4
-        proto_ver = msg[0] & 0x0F
-
-        if msg_type == 0x00:  # Basic ID
-            # Byte 1: [UAType(4b)][IDType(4b)] — C bitfield: UAType LSb first
-            ua_type = msg[1] & 0x0F
-            id_type = (msg[1] >> 4) & 0x0F
-            # Bytes 2-21: UASID (20 bytes, null-padded)
-            uas_id = msg[2:22].rstrip(b'\x00').decode('utf-8', errors='replace')
-            id_type_names = {0: "None", 1: "Serial", 2: "CAA", 3: "UTM", 4: "Session"}
-            ua_type_names = {0: "None", 1: "Aeroplane", 2: "Helicopter/Multirotor", 3: "Gyroplane",
-                             4: "HybridLift", 5: "Ornithopter", 6: "Glider", 7: "Kite",
-                             8: "FreeBalloon", 9: "CaptiveBalloon", 10: "Airship",
-                             11: "FreeFall", 12: "Rocket", 13: "Tethered", 14: "GroundObs", 15: "Other"}
-            fields["Basic ID"] = f"{uas_id} (ID={id_type_names.get(id_type, str(id_type))}, UA={ua_type_names.get(ua_type, str(ua_type))})"
-
-        elif msg_type == 0x01:  # Location
-            # Byte 1: [SpeedMult(1b)][EWDirection(1b)][HeightType(1b)][Reserved(1b)][Status(4b)]
-            # C bitfield: SpeedMult at bit0, Status at bits4-7
-            speed_mult = (msg[1] >> 0) & 0x01
-            ew_dir = (msg[1] >> 1) & 0x01
-            height_type = (msg[1] >> 2) & 0x01
-            status = (msg[1] >> 4) & 0x0F
-            # Byte 2: Direction (uint8, 0-179 degrees)
-            direction_raw = msg[2]
-            direction = direction_raw + (180 if ew_dir else 0)
-            # Byte 3: SpeedHorizontal (uint8, ×0.25 or ×0.75 m/s)
-            if speed_mult:
-                speed_h = 255 * 0.25 + msg[3] * 0.75
-            else:
-                speed_h = msg[3] * 0.25
-            # Byte 4: SpeedVertical (int8, ×0.5 m/s)
-            speed_v_raw = struct.unpack("<b", msg[4:5])[0]
-            speed_v = speed_v_raw * 0.5
-            # Bytes 5-8: Latitude (int32 LE, ×10^7)
-            lat = struct.unpack("<i", msg[5:9])[0] / 1e7
-            # Bytes 9-12: Longitude (int32 LE, ×10^7)
-            lng = struct.unpack("<i", msg[9:13])[0] / 1e7
-            # Bytes 13-14: AltitudeBaro (uint16 LE, (m+1000)/0.5)
-            alt_baro = struct.unpack("<H", msg[13:15])[0] * 0.5 - 1000.0
-            # Bytes 15-16: AltitudeGeo (uint16 LE, (m+1000)/0.5)
-            alt_geo = struct.unpack("<H", msg[15:17])[0] * 0.5 - 1000.0
-            # Bytes 17-18: Height (uint16 LE, (m+1000)/0.5)
-            height = struct.unpack("<H", msg[17:19])[0] * 0.5 - 1000.0
-            # Byte 19: HorizAccuracy(4b)|VertAccuracy(4b)
-            horiz_acc = msg[19] & 0x0F
-            vert_acc = (msg[19] >> 4) & 0x0F
-            # Bytes 21-22: TimeStamp (uint16 LE, tenths of seconds since the hour)
-            timestamp = struct.unpack("<H", msg[21:23])[0] / 10.0
-
-            status_names = {0: "Undeclared", 1: "Ground", 2: "Airborne", 3: "Emergency", 4: "Failure"}
-            fields["Status"] = status_names.get(status, f"Unknown({status})")
-            fields["Direction"] = direction
-            fields["Speed Horizontal"] = f"{speed_h:.2f} m/s"
-            fields["Speed Vertical"] = f"{speed_v:.2f} m/s"
-            fields["Latitude"] = lat
-            fields["Longitude"] = lng
-            fields["Altitude Baro"] = f"{alt_baro:.1f} m"
-            fields["Altitude Geo"] = f"{alt_geo:.1f} m"
-            fields["Height"] = f"{height:.1f} m (above {'ground' if height_type else 'takeoff'})"
-            fields["Timestamp"] = f"{timestamp:.1f}s after hour"
-            fields["HorizAcc"] = f"enum={horiz_acc}"
-            fields["VertAcc"] = f"enum={vert_acc}"
-
-        elif msg_type == 0x02:  # Auth
-            fields["Auth"] = f"page={msg[1] & 0x0F}"
-
-        elif msg_type == 0x03:  # Self-ID
-            # Byte 1: DescType
-            desc_type = msg[1]
-            # Bytes 2-24: Description (23 bytes)
-            desc = msg[2:25].rstrip(b'\x00').decode('utf-8', errors='replace')
-            desc_type_names = {0: "Text", 1: "Emergency", 2: "ExtendedStatus"}
-            fields["Self-ID"] = f"{desc} (type={desc_type_names.get(desc_type, desc_type)})"
-
-        elif msg_type == 0x04:  # System
-            op_loc_type = msg[1] & 0x03
-            class_type = (msg[1] >> 2) & 0x07
-            op_lat = struct.unpack('<i', msg[2:6])[0] / 1e7
-            op_lng = struct.unpack('<i', msg[6:10])[0] / 1e7
-            area_count = struct.unpack('<H', msg[10:12])[0]
-            area_radius = msg[12] * 10
-            area_ceiling = struct.unpack('<H', msg[13:15])[0] * 0.5 - 1000.0
-            area_floor = struct.unpack('<H', msg[15:17])[0] * 0.5 - 1000.0
-            op_alt_geo = struct.unpack('<H', msg[18:20])[0] * 0.5 - 1000.0
-            fields["System"] = (f"op=({op_lat:.6f},{op_lng:.6f},{op_alt_geo:.1f}m) "
-                                f"area=({area_count}x r={area_radius}m ceil={area_ceiling:.1f} floor={area_floor:.1f})")
-
-        elif msg_type == 0x05:  # Operator ID
-            # Byte 1: OperatorIdType, Bytes 2-21: OperatorId (20 bytes)
-            op_id = msg[2:22].rstrip(b'\x00').decode('utf-8', errors='replace')
-            fields["Operator ID"] = op_id
-
-    return fields
 
 
 # ── TLV Decoder (legacy GB 46750) ──────────────────────────────────
