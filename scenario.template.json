@@ -16,6 +16,10 @@
     },
     "nan": {
       "channel": 6
+    },
+    "gb": {
+      "channel": 6,
+      "beacon_interval": 0.1024
     }
   },
   "drones": [

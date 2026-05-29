@@ -1,0 +1,40 @@
+{
+  "global": {
+    "interface": "wlan1",
+    "interval": 1.0,
+    "location": [23.1291, 113.2644],
+    "transport": "gb",
+    "gb": {
+      "channel": 6,
+      "beacon_interval": 1.0
+    }
+  },
+  "drones": [
+    {
+      "mode": "random",
+      "serial": "GB_SWARM_01",
+      "mac": "02:00:00:00:01:01",
+      "speed": 5.0,
+      "height": 30.0
+    },
+    {
+      "mode": "random",
+      "serial": "GB_SWARM_02",
+      "mac": "02:00:00:00:01:02",
+      "speed": 12.0,
+      "height": 80.0
+    },
+    {
+      "mode": "waypoints",
+      "serial": "GB_SWARM_03",
+      "mac": "02:00:00:00:01:03",
+      "waypoints": [
+        [23.1292, 113.2645, 2],
+        [23.1294, 113.2646, 2],
+        [23.1296, 113.2647, 2]
+      ],
+      "speed": 15.0,
+      "height": 50.0
+    }
+  ]
+}

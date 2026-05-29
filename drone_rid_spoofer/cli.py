@@ -49,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("-t", "--transport", type=str, default=None,
-                        choices=["wifi", "ble", "nan", "both"],
-                        help="Transport backend: wifi (Beacon), ble, nan (Wi-Fi NAN), or both (default: wifi)")
+                        choices=["wifi", "ble", "nan", "gb", "both"],
+                        help="Transport backend: wifi (Beacon), ble, nan (Wi-Fi NAN), gb (GB 42590), or both (default: wifi)")
     parser.add_argument("--ble-adapter", type=str, default=None,
                         help="BLE adapter name (default: hci0). If BLE transport is used")
     parser.add_argument("--wifi-ess", action="store_true", default=None,
@@ -99,6 +99,10 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
         from drone_rid_spoofer.transport.nan import NanBackend
         backends.append(NanBackend(interface, channel=nan_channel))
 
+    if transport == "gb":
+        from drone_rid_spoofer.transport.gb import GbBackend
+        backends.append(GbBackend(interface, channel=wifi_channel, beacon_interval=wifi_beacon_interval))
+
     return backends
 
 
@@ -145,11 +149,13 @@ def main() -> None:
             
         if getattr(args, 'wifi_channel', None) is None:
             wifi_config = config_global.get("wifi", {})
-            args.wifi_channel = int(wifi_config.get("channel", 6))
+            gb_config = config_global.get("gb", {})
+            args.wifi_channel = int(wifi_config.get("channel") or gb_config.get("channel", 6))
             
         if getattr(args, 'wifi_beacon_interval', None) is None:
             wifi_config = config_global.get("wifi", {})
-            args.wifi_beacon_interval = float(wifi_config.get("beacon_interval", 0.1024))
+            gb_config = config_global.get("gb", {})
+            args.wifi_beacon_interval = float(wifi_config.get("beacon_interval") or gb_config.get("beacon_interval", 1.0))
 
         # NAN configuration
         nan_config = config_global.get("nan", {})
@@ -182,5 +188,7 @@ def main() -> None:
     except KeyboardInterrupt:
         logging.info("Shutdown complete")
     except Exception as e:
+        import traceback
         logging.error(f"Fatal error: {e}")
+        traceback.print_exc()
         sys.exit(1)
