@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [47.3763399, 8.5312562]
+    "location": [23.1291, 113.2644]
   },
   "drones": [
     {
@@ -18,7 +18,7 @@
     {
       "mode": "static",
       "serial": "PERSISTENT_01",
-      "start_location": [47.3765, 8.5315]
+      "start_location": [23.1293, 113.2647]
     }
   ]
 }

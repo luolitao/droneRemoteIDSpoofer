@@ -153,7 +153,7 @@ For full architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `-r` | `--random` | `int` | config or `1` | Number of random drones |
 | `-s` | `--serial` | `str` | random | Custom serial (max 20 chars) |
 | `-n` | `--interval` | `float` | config or `1.0` | Seconds between packet batches |
-| `-l` | `--location` | `lat lng` | config or Zurich | Base coordinates (decimal degrees) |
+| `-l` | `--location` | `lat lng` | config or Guangzhou | Base coordinates (decimal degrees) |
 | `-c` | `--config` | `path` | - | Path to scenario JSON config |
 | `-v` | `--verbose` | - | - | Enable debug logging |
 | `-t` | `--transport` | `wifi\|ble\|both` | config or `wifi` | Transport backend |

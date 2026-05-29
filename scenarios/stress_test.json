@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 0.5,
-    "location": [47.3763399, 8.5312562]
+    "location": [23.1291, 113.2644]
   },
   "drones": [
     { "mode": "random", "serial": "STRESS_01" },

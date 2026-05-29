@@ -10,8 +10,8 @@ from drone_rid_spoofer.transport.base import TransportBackend
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
-DEFAULT_LAT: int = 473763399
-DEFAULT_LNG: int = 85312562
+DEFAULT_LAT: int = 231291000   # = 23.1291 * 10^7  (Guangzhou)
+DEFAULT_LNG: int = 1132644000  # = 113.2644 * 10^7 (Guangzhou)
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("-t", "--transport", type=str, default=None,
-                        choices=["wifi", "ble", "both"],
-                        help="Transport backend (default: wifi)")
+                        choices=["wifi", "ble", "nan", "both"],
+                        help="Transport backend: wifi (Beacon), ble, nan (Wi-Fi NAN), or both (default: wifi)")
     parser.add_argument("--ble-adapter", type=str, default=None,
                         help="BLE adapter name (default: hci0). If BLE transport is used")
     parser.add_argument("--wifi-ess", action="store_true", default=None,
@@ -82,7 +82,8 @@ def load_config(path: str) -> dict:
 
 def create_backends(transport: str, interface: str, ble_adapter: str,
                     ble_interval_ms: int, wifi_ess: bool = False,
-                    wifi_channel: int = 6, wifi_beacon_interval: float = 0.1024) -> List[TransportBackend]:
+                    wifi_channel: int = 6, wifi_beacon_interval: float = 0.1024,
+                    nan_channel: int = 6) -> List[TransportBackend]:
     """Create transport backend instances based on configuration."""
     backends: List[TransportBackend] = []
 
@@ -93,6 +94,10 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
     if transport in ("ble", "both"):
         from drone_rid_spoofer.transport.ble import BleBackend
         backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
+
+    if transport == "nan":
+        from drone_rid_spoofer.transport.nan import NanBackend
+        backends.append(NanBackend(interface, channel=nan_channel))
 
     return backends
 
@@ -121,7 +126,7 @@ def main() -> None:
                 args.location = parse_location(str(cfg_location[0]), str(cfg_location[1]))
             else:
                 args.location = (DEFAULT_LAT, DEFAULT_LNG)
-                logging.info("Using default location (Zurich)")
+                logging.info("Using default location (Guangzhou)")
 
         # Transport configuration
         if args.transport is None:
@@ -146,6 +151,10 @@ def main() -> None:
             wifi_config = config_global.get("wifi", {})
             args.wifi_beacon_interval = float(wifi_config.get("beacon_interval", 0.1024))
 
+        # NAN configuration
+        nan_config = config_global.get("nan", {})
+        nan_channel = int(nan_config.get("channel", 6))
+
         if args.random < 1:
             raise ValueError("Number of random drones must be at least 1")
 
@@ -157,7 +166,8 @@ def main() -> None:
         backends = create_backends(args.transport, args.interface, args.ble_adapter,
                                    ble_interval_ms, wifi_ess=args.wifi_ess,
                                    wifi_channel=args.wifi_channel,
-                                   wifi_beacon_interval=args.wifi_beacon_interval)
+                                   wifi_beacon_interval=args.wifi_beacon_interval,
+                                   nan_channel=nan_channel)
         spoofer = DroneSpoofer(args, backends)
 
         try:

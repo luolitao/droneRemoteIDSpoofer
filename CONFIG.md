@@ -15,7 +15,7 @@ Note that CLI flags override config values.
 ## Global fields
 - `interface` (string): Wi-Fi network interface for injection. Default: `wlan1`.
 - `interval` (number): seconds between transmission batches. Default: `1.0`.
-- `location` ([lat, lng]): base coordinates in decimal degrees. Default: Zurich.
+- `location` ([lat, lng]): base coordinates in decimal degrees. Default: Guangzhou.
 - `random` (int): number of random drones if `drones` is empty. Default: `1`.
 - `transport` (string): `"wifi"`, `"ble"`, or `"both"`. Default: `"wifi"`.
 - `ble` (object): BLE-specific settings (optional).
@@ -122,9 +122,9 @@ Waypoints (the global config is ommited):
     {
       "mode": "waypoints",
       "waypoints": [
-        [47.3764, 8.5313, 2],
-        [47.3766, 8.5316, 2],
-        [47.3768, 8.5319, 2]
+        [23.1292, 113.2645, 2],
+        [23.1294, 113.2646, 2],
+        [23.1296, 113.2647, 2]
       ]
     }
   ]

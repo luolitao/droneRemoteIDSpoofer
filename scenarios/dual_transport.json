@@ -3,7 +3,7 @@
     "interface": "wlan1",
     "transport": "both",
     "interval": 1.0,
-    "location": [47.3763399, 8.5312562],
+    "location": [23.1291, 113.2644],
     "ble": {
       "adapter": "hci0",
       "advertising_interval_ms": 200
@@ -14,9 +14,9 @@
       "mode": "waypoints",
       "serial": "DUAL_01",
       "waypoints": [
-        [47.3764, 8.5313, 5],
-        [47.3768, 8.5319, 5],
-        [47.3764, 8.5313, 5]
+        [23.1292, 113.2645, 5],
+        [23.1296, 113.2647, 5],
+        [23.1292, 113.2645, 5]
       ]
     }
   ]

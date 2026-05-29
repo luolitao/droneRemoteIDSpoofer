@@ -130,3 +130,27 @@ def build_all_messages(drone: DroneState, protocol_version: int = 2) -> List[byt
         build_system(drone.pilot_location[0], drone.pilot_location[1], protocol_version=protocol_version),
         build_operator_id(protocol_version=protocol_version),
     ]
+
+
+def build_message_pack(messages: List[bytes], protocol_version: int = 2) -> bytes:
+    """Build Message Type 0xF - Message Pack.
+
+    Used by Wi-Fi NAN transport to bundle all message types into a single
+    NAN Service Discovery Frame attribute payload.
+
+    Format:
+        Byte 0:     [MessageType(4b)=0xF][ProtoVersion(4b)]
+        Byte 1:     SingleMessageSize (0x19 = 25 bytes)
+        Byte 2:     MsgPackSize (number of messages)
+        Bytes 3+:   Concatenated 25-byte message payloads
+
+    Args:
+        messages: List of 25-byte ASTM message payloads (up to 9).
+        protocol_version: ASTM protocol version (default: 2).
+    """
+    header = bytes([
+        (MsgType.PACK << 4) | protocol_version,
+        0x19,                     # SingleMessageSize: always 25
+        len(messages) & 0xFF,     # MsgPackSize
+    ])
+    return header + b''.join(messages)

@@ -1,0 +1,18 @@
+{
+  "global": {
+    "interface": "wlan1",
+    "interval": 1.0,
+    "location": [23.1291, 113.2644],
+    "transport": "nan",
+    "nan": {
+      "channel": 6
+    }
+  },
+  "drones": [
+    {
+      "mode": "random",
+      "serial": "NAN_Drone_001",
+      "mac": "02:00:00:00:00:01"
+    }
+  ]
+}
