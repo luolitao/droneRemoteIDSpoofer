@@ -34,8 +34,8 @@ except ImportError:
     sys.exit(1)
 
 # Import shared ODID decoder
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from drone_rid_spoofer.odid_encoding import decode_message_pack
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from drone_rid_spoofer.messages import decode_message_pack
 
 # ── Constants ──────────────────────────────────────────────────────
 OUI_ASTM_GB = b'\xfa\x0b\xbc'
