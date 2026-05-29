@@ -9,6 +9,8 @@
       "mode": "waypoints",
       "serial": "INTRUDER_01",
       "pilot_location": [23.3890, 113.2950],
+      "operator_id": "OP-INTRUDER-01",
+      "operator_altitude": 10.0,
       "waypoints": [
         [23.3900, 113.2960, 3],
         [23.3910, 113.2980, 2],

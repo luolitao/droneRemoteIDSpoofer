@@ -29,6 +29,8 @@
       "mac": "aa:bb:cc:dd:ee:ff",
       "start_location": [23.1292, 113.2645],
       "pilot_location": [23.1290, 113.2643],
+      "operator_id": "OP-12345",
+      "operator_altitude": 25.0,
       "lifespan_seconds": 30,
       "timestamp_offset_minutes": -2,
       "speed": 12.5,

@@ -28,6 +28,8 @@ class DroneState:
     pressure_altitude: float = 0.0  # meters MSL
     geodetic_altitude: float = 0.0  # meters MSL
     height: float = 0.0             # meters above takeoff/ground
+    operator_id: str = ""           # operator registration ID (CAA, etc.)
+    operator_altitude: float = 0.0  # operator altitude in meters (MSL)
 
     def update_location(self, step: int) -> None:
         """Update drone location randomly within step range."""

@@ -539,7 +539,7 @@ class NanBackend(TransportBackend):
             messages: List of 25-byte ASTM message payloads.
         """
         # Build Message Pack
-        pack = build_message_pack(messages, protocol_version=self.protocol_version)
+        pack = build_message_pack(messages, proto=self.protocol_version)
 
         if len(pack) > self.MAX_PACK_SIZE:
             logger.warning(
@@ -548,7 +548,7 @@ class NanBackend(TransportBackend):
             )
             # Rebuild with only first 9 messages
             pack = build_message_pack(
-                messages[:9], protocol_version=self.protocol_version
+                messages[:9], proto=self.protocol_version
             )
 
         seq = self._next_seq()

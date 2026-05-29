@@ -1,5 +1,6 @@
 import argparse
 import logging
+import random
 import select
 import sys
 import termios
@@ -11,6 +12,7 @@ from typing import List, Optional
 from drone_rid_spoofer.helpers import (
     generate_ble_mac,
     generate_wifi_mac,
+    get_random_operator_id,
     get_random_pilot_location,
     get_random_serial_number,
     parse_location,
@@ -56,7 +58,9 @@ class DroneSpoofer:
         mac_addr = generate_wifi_mac()
         ble_addr = generate_ble_mac()
 
-        drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr)
+        drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr,
+                           operator_id=get_random_operator_id(),
+                           operator_altitude=random.uniform(0.0, 50.0))
         self._seed_kinematics(drone)
         logger.info(f"Drone {serial.decode()} created at [{lat}, {lng}] with Wi-Fi MAC {mac_addr}, BLE addr {ble_addr}")
 
@@ -125,7 +129,9 @@ class DroneSpoofer:
             mac_addr = generate_wifi_mac()
             ble_addr = generate_ble_mac()
 
-            drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr)
+            drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr,
+                               operator_id=get_random_operator_id(),
+                               operator_altitude=random.uniform(0.0, 50.0))
             self._seed_kinematics(drone)
             drones.append(drone)
             logger.info(f"Drone {serial.decode()} created with Wi-Fi MAC {mac_addr}, BLE addr {ble_addr}")
@@ -196,6 +202,9 @@ class DroneSpoofer:
 
             drone_transport = entry.get("transport")
             timestamp_offset = entry.get("timestamp_offset_minutes", 0.0)
+            operator_id = entry.get("operator_id", get_random_operator_id())
+            operator_altitude = float(entry.get("operator_altitude",
+                                                random.uniform(0.0, 50.0)))
 
             drone = DroneState(
                 serial=serial_bytes,
@@ -209,6 +218,8 @@ class DroneSpoofer:
                 waypoints=waypoints,
                 transport=drone_transport,
                 timestamp_offset=float(timestamp_offset),
+                operator_id=operator_id,
+                operator_altitude=operator_altitude,
             )
             self._seed_kinematics(drone, overrides=self._extract_kinematic_overrides(entry))
             drones.append(drone)

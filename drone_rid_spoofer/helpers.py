@@ -69,6 +69,11 @@ def get_random_pilot_location(lat: int, lng: int) -> Tuple[int, int]:
     )
 
 
+def get_random_operator_id() -> str:
+    """Generate a random operator registration ID (CAA-style)."""
+    return f"OP-{random.randint(10000, 99999)}"
+
+
 def random_location(lat: int, lng: int, distance: int = 100000) -> Tuple[int, int]:
     """Generate random coordinates within specified distance."""
     return (

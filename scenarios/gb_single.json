@@ -16,6 +16,8 @@
       "mac": "02:00:00:00:00:01",
       "start_location": [23.1292, 113.2645],
       "pilot_location": [23.1290, 113.2643],
+      "operator_id": "GB-OP-00001",
+      "operator_altitude": 25.0,
       "speed": 8.0,
       "vertical_speed": 0.5,
       "geodetic_altitude": 120.0,

@@ -49,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("-t", "--transport", type=str, default=None,
-                        choices=["wifi", "ble", "nan", "gb", "both"],
-                        help="Transport backend: wifi (Beacon), ble, nan (Wi-Fi NAN), gb (GB 42590), or both (default: wifi)")
+                        help="Transport backend(s): wifi, ble, nan, gb, both (wifi+ble), "
+                             "or comma-separated combos like 'nan,ble' (default: wifi)")
     parser.add_argument("--ble-adapter", type=str, default=None,
                         help="BLE adapter name (default: hci0). If BLE transport is used")
     parser.add_argument("--wifi-ess", action="store_true", default=None,
@@ -84,24 +84,36 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
                     ble_interval_ms: int, wifi_ess: bool = False,
                     wifi_channel: int = 6, wifi_beacon_interval: float = 0.1024,
                     nan_channel: int = 6) -> List[TransportBackend]:
-    """Create transport backend instances based on configuration."""
+    """Create transport backend instances based on configuration.
+
+    Supports individual transports and combinations:
+      - "wifi", "ble", "nan", "gb" — single transport
+      - "both" — WiFi Beacon + BLE
+      - comma-separated list — any combination, e.g. "nan,ble" or "wifi,nan,gb"
+    """
     backends: List[TransportBackend] = []
 
-    if transport in ("wifi", "both"):
-        from drone_rid_spoofer.transport.wifi import WifiBackend
-        backends.append(WifiBackend(interface, ess=wifi_ess, channel=wifi_channel, beacon_interval=wifi_beacon_interval))
+    # Support comma-separated combinations like "nan,ble" or "wifi,nan,gb"
+    transports = [t.strip() for t in transport.split(",")] if "," in transport else [transport]
 
-    if transport in ("ble", "both"):
-        from drone_rid_spoofer.transport.ble import BleBackend
-        backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
+    for t in transports:
+        if t in ("wifi", "both"):
+            from drone_rid_spoofer.transport.wifi import WifiBackend
+            backends.append(WifiBackend(interface, ess=wifi_ess, channel=wifi_channel,
+                                        beacon_interval=wifi_beacon_interval))
 
-    if transport == "nan":
-        from drone_rid_spoofer.transport.nan import NanBackend
-        backends.append(NanBackend(interface, channel=nan_channel))
+        elif t in ("ble", "both"):
+            from drone_rid_spoofer.transport.ble import BleBackend
+            backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
 
-    if transport == "gb":
-        from drone_rid_spoofer.transport.gb import GbBackend
-        backends.append(GbBackend(interface, channel=wifi_channel, beacon_interval=wifi_beacon_interval))
+        elif t == "nan":
+            from drone_rid_spoofer.transport.nan import NanBackend
+            backends.append(NanBackend(interface, channel=nan_channel))
+
+        elif t == "gb":
+            from drone_rid_spoofer.transport.gb import GbBackend
+            backends.append(GbBackend(interface, channel=wifi_channel,
+                                      beacon_interval=wifi_beacon_interval))
 
     return backends
 

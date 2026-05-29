@@ -9,6 +9,8 @@
       "mode": "waypoints",
       "serial": "FLIGHT_PATH_01",
       "pilot_location": [23.1288, 113.2642],
+      "operator_id": "OP-FLIGHT-001",
+      "operator_altitude": 15.0,
       "waypoints": [
         [23.12900, 113.26400, 5],
         [23.12930, 113.26450, 3],

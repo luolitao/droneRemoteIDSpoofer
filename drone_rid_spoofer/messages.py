@@ -250,14 +250,22 @@ def decode_self_id(msg: bytes) -> Dict:
 
 # ── System ──────────────────────────────────────────────────────────────
 
-def encode_system(pilot_lat: int, pilot_lng: int, proto: int = 1) -> bytes:
-    """Encode System message (MessageType=0x4, 25 bytes)."""
+def encode_system(pilot_lat: int, pilot_lng: int, proto: int = 1,
+                  operator_altitude: float = 0.0) -> bytes:
+    """Encode System message (MessageType=0x4, 25 bytes).
+
+    Layout: [MsgType|Proto(1)] [OpLocType(1)] [OpLat(4 LE)] [OpLng(4 LE)]
+            [AreaCount(2)] [AreaRadius(1)] [AreaCeiling(2)] [AreaFloor(2)]
+            [Classification(1)] [OpAlt(2)] [Timestamp(2)]
+    """
     msg = bytearray(MESSAGE_SIZE)
     msg[0] = (MsgType.SYSTEM << 4) | (proto & 0x0F)
     msg[1] = 0x05  # operator location type: live GNSS, airborne
     struct.pack_into("<i", msg, 2, pilot_lat)
     struct.pack_into("<i", msg, 6, pilot_lng)
     msg[16] = 0x12  # classification: EU category specific
+    # Operator altitude (bytes 18-19): encode same as drone altitude
+    struct.pack_into("<H", msg, 18, _clamp_alt(operator_altitude))
     return bytes(msg)
 
 
@@ -276,10 +284,17 @@ def decode_system(msg: bytes) -> Dict:
 
 # ── Operator ID ─────────────────────────────────────────────────────────
 
-def encode_operator_id(proto: int = 1) -> bytes:
-    """Encode Operator ID message (MessageType=0x5, 25 bytes)."""
+def encode_operator_id(operator_id: str = "", proto: int = 1) -> bytes:
+    """Encode Operator ID message (MessageType=0x5, 25 bytes).
+
+    Layout: [MsgType|Proto(1)] [Reserved(1)] [OperatorID(20)] [Reserved(3)]
+    OperatorID is a 20-byte UTF-8 string (typically a CAA registration ID).
+    """
     msg = bytearray(MESSAGE_SIZE)
     msg[0] = (MsgType.OPERATOR_ID << 4) | (proto & 0x0F)
+    # Write operator ID into bytes 2-21 (20 bytes max)
+    op_id_bytes = operator_id.encode('utf-8')[:20].ljust(20, b'\x00')
+    msg[2:22] = op_id_bytes
     return bytes(msg)
 
 
@@ -326,19 +341,25 @@ def build_message_pack(messages: List[bytes], proto: int = 2) -> bytes:
 def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes:
     """Build GB 42590 vendor IE payload with counter + Message Pack.
 
-    Layout: [counter(1)] [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount=3(1)]
-            [BasicID(25)] [Location(25)] [SelfID(25)]
+    Layout: [counter(1)] [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount=5(1)]
+            [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
+
+    Includes pilot/operator information per GB 42590-2023 requirements.
     """
     messages = (
         encode_basic_id(drone.serial, proto=proto)
         + encode_location(drone, proto=proto)
         + encode_self_id(proto=proto)
+        + encode_system(drone.pilot_location[0], drone.pilot_location[1],
+                        proto=proto, operator_altitude=drone.operator_altitude)
+        + encode_operator_id(operator_id=drone.operator_id, proto=proto)
     )
+    msg_count = 5
     header = bytes([
         send_counter & 0xFF,
         (MsgType.PACK << 4) | (proto & 0x0F),
         MESSAGE_SIZE,
-        3,  # msg_count
+        msg_count,
     ])
     return header + messages
 
@@ -361,11 +382,16 @@ def decode_message_pack(data: bytes, msg_count: int, msg_size: int = MESSAGE_SIZ
 # ── All-messages builder (for standard transports: wifi, ble, nan) ──────
 
 def build_all_messages(drone: DroneState, proto: int = 2) -> List[bytes]:
-    """Build all ASTM message payloads for a drone (protocol v2 by default)."""
+    """Build all ASTM message payloads for a drone (protocol v2 by default).
+
+    Includes: Basic ID, Location, Self ID, System (pilot location + altitude),
+    Operator ID.
+    """
     return [
         encode_basic_id(drone.serial, proto=proto),
         encode_location(drone, proto=proto, timestamp_offset=drone.timestamp_offset),
         encode_self_id(b"Spoofing test", proto=proto),
-        encode_system(drone.pilot_location[0], drone.pilot_location[1], proto=proto),
-        encode_operator_id(proto=proto),
+        encode_system(drone.pilot_location[0], drone.pilot_location[1],
+                      proto=proto, operator_altitude=drone.operator_altitude),
+        encode_operator_id(operator_id=drone.operator_id, proto=proto),
     ]
