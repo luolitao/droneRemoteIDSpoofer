@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644],
+    "location": [23.1403, 113.2725],
     "transport": "nan,ble",
     "ble": {
       "adapter": "hci0",
@@ -15,7 +15,7 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "NAN_BLE_001",
+      "serial": "TEST_NAN_BLE_001",
       "mac": "02:00:00:00:02:01"
     }
   ]

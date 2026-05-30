@@ -2,28 +2,28 @@
   "global": {
     "interface": "wlan1",
     "interval": 0.5,
-    "location": [23.3924, 113.2997]
+    "location": [23.1403, 113.2725]
   },
   "drones": [
     {
       "mode": "waypoints",
-      "serial": "INTRUDER_01",
-      "pilot_location": [23.3890, 113.2950],
-      "operator_id": "OP-INTRUDER-01",
+      "serial": "TEST_INTRUDER_01",
+      "pilot_location": [23.1401, 113.2723],
+      "operator_id": "OP-TEST-INTRUDER-01",
       "operator_altitude": 10.0,
       "waypoints": [
-        [23.3900, 113.2960, 3],
-        [23.3910, 113.2980, 2],
-        [23.3920, 113.2995, 5],
-        [23.3925, 113.3010, 2],
-        [23.3910, 113.2980, 2],
-        [23.3900, 113.2960, 3]
+        [23.1400, 113.2720, 3],
+        [23.1405, 113.2723, 3],
+        [23.1408, 113.2728, 3],
+        [23.1405, 113.2732, 3],
+        [23.1400, 113.2728, 3],
+        [23.1400, 113.2720, 3]
       ]
     },
     {
       "mode": "random",
-      "serial": "LOITERER_01",
-      "start_location": [23.3915, 113.2970]
+      "serial": "TEST_LOITERER_01",
+      "start_location": [23.1405, 113.2727]
     }
   ]
 }

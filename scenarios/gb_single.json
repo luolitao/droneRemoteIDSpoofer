@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644],
+    "location": [23.1403, 113.2725],
     "transport": "gb",
     "gb": {
       "channel": 6,
@@ -14,9 +14,9 @@
       "mode": "random",
       "serial": "GB_TEST_00001",
       "mac": "02:00:00:00:00:01",
-      "start_location": [23.1292, 113.2645],
-      "pilot_location": [23.1290, 113.2643],
-      "operator_id": "GB-OP-00001",
+      "start_location": [23.1405, 113.2727],
+      "pilot_location": [23.1401, 113.2723],
+      "operator_id": "GB-OP-TEST-0001",
       "operator_altitude": 25.0,
       "speed": 8.0,
       "vertical_speed": 0.5,

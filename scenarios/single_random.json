@@ -2,9 +2,9 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644]
+    "location": [23.1403, 113.2725]
   },
   "drones": [
-    { "mode": "random" }
+    { "mode": "random", "serial": "TEST_RANDOM_01" }
   ]
 }

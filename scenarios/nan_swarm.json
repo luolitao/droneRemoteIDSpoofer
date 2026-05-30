@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644],
+    "location": [23.1403, 113.2725],
     "transport": "nan",
     "nan": {
       "channel": 6
@@ -11,27 +11,27 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "NAN_Swarm_001",
+      "serial": "TEST_NAN_Swarm_001",
       "mac": "02:00:00:00:01:01"
     },
     {
       "mode": "random",
-      "serial": "NAN_Swarm_002",
+      "serial": "TEST_NAN_Swarm_002",
       "mac": "02:00:00:00:01:02"
     },
     {
       "mode": "random",
-      "serial": "NAN_Swarm_003",
+      "serial": "TEST_NAN_Swarm_003",
       "mac": "02:00:00:00:01:03"
     },
     {
       "mode": "random",
-      "serial": "NAN_Swarm_004",
+      "serial": "TEST_NAN_Swarm_004",
       "mac": "02:00:00:00:01:04"
     },
     {
       "mode": "random",
-      "serial": "NAN_Swarm_005",
+      "serial": "TEST_NAN_Swarm_005",
       "mac": "02:00:00:00:01:05"
     }
   ]

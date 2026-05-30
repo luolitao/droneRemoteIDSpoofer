@@ -2,7 +2,7 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644],
+    "location": [23.1403, 113.2725],
     "transport": "nan",
     "nan": {
       "channel": 6
@@ -11,16 +11,16 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "NAN_Drone_001",
+      "serial": "TEST_NAN_Drone_001",
       "mac": "02:00:00:00:00:01",
-      "pilot_location": [23.1290, 113.2643],
-      "operator_id": "OP-12345",
+      "pilot_location": [23.1401, 113.2723],
+      "operator_id": "OP-TEST-12345",
       "operator_altitude": 25.0,
       "speed": 15.0,
       "vertical_speed": 2.5,
-      "geodetic_altitude": 125.0,
-      "pressure_altitude": 120.0,
-      "height": 100.0
+      "geodetic_altitude": 120.0,
+      "pressure_altitude": 118.0,
+      "height": 80.0
     }
   ]
 }
