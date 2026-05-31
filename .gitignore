@@ -28,3 +28,5 @@ dist/
 # Local environment files
 .env
 .env.*
+
+.codebuddy/

@@ -161,7 +161,7 @@ def encode_location(drone: DroneState, proto: int = 1,
     msg = bytearray(MESSAGE_SIZE)
     msg[0] = (MsgType.LOCATION << 4) | (proto & 0x0F)
 
-    ew_dir, dir_byte = _clamp_direction(drone.direction)
+    ew_dir, dir_byte = _clamp_direction(int(drone.direction))
     speed_h = _clamp_speed_h(drone.speed)
     speed_v = _clamp_speed_v(drone.vertical_speed)
 

@@ -181,8 +181,8 @@ sudo python3 spoof_drones.py -c scenarios/airport_incursion.json
 
 ```
 场景 JSON / CLI 参数
-        |
-        v
+       |
+       v
   +-----------+       +------------------+
   |  Spoofer  | ----> | encode_basic_id  |  25-byte ASTM 消息负载
   |  Loop     |       | encode_location  |  （所有传输方式通用）
@@ -190,8 +190,8 @@ sudo python3 spoof_drones.py -c scenarios/airport_incursion.json
   |           |       | encode_system    |
   |           |       | encode_operator  |
   +-----------+       +------------------+
-        |
-        v
+       |
+       v
   +-----+------+------+------+
   |            |             |
   v            v             v

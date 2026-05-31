@@ -92,8 +92,8 @@ def random_vertical_speed(min_mps: float = -5.0, max_mps: float = 5.0) -> float:
     return random.uniform(min_mps, max_mps)
 
 
-def random_altitude(min_m: float = 50.0, max_m: float = 400.0) -> float:
-    """Random altitude in meters (MSL). Default range fits typical hobbyist flight ceilings."""
+def random_altitude(min_m: float = 10.0, max_m: float = 120.0) -> float:
+    """Random altitude in meters (MSL). Capped at 120 m per GB 42590."""
     return random.uniform(min_m, max_m)
 
 

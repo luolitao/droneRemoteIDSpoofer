@@ -18,9 +18,9 @@ from typing import Dict, Tuple
 from scapy.all import sendp
 import scapy.layers.dot11 as dot11
 
+from drone_rid_spoofer.messages import MsgType, MESSAGE_SIZE
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
-from drone_rid_spoofer.odid_encoding import build_message_pack
 
 logger = logging.getLogger(__name__)
 
@@ -136,12 +136,25 @@ class GbBackend(TransportBackend):
             time.sleep(self.beacon_interval)
 
     def send_messages(self, drone: DroneState, messages: list) -> None:
-        """Build and cache a GB beacon with ASTM Message Pack payload."""
+        """Build and cache a GB beacon with ASTM Message Pack payload.
+
+        仅发送传入的 messages 列表，由上层 spoofer 控制动态/静态报文分离。
+        """
         with self._lock:
             counter = self._send_counters.get(drone.serial, 0)
             self._send_counters[drone.serial] = (counter + 1) % 256
 
-        gb_payload = build_message_pack(drone, counter)
+        # 根据传入的 messages 构建 GB Message Pack（而非硬编码全部 5 条）
+        msg_count = len(messages)
+        body = b''.join(messages)
+        header = bytes([
+            counter & 0xFF,
+            (MsgType.PACK << 4) | 0x01,  # proto=1
+            MESSAGE_SIZE,
+            msg_count,
+        ])
+        gb_payload = header + body
+
         serial_str = drone.serial.decode('ascii', errors='replace')
         ssid = (self.SSID_PREFIX + serial_str)[:self.SSID_MAX_LEN]
 

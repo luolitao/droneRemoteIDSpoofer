@@ -22,20 +22,43 @@ from drone_rid_spoofer.helpers import (
     random_speed,
     random_vertical_speed,
 )
-from drone_rid_spoofer.messages import build_all_messages
+from drone_rid_spoofer.messages import (
+    encode_basic_id,
+    encode_location,
+    encode_self_id,
+    encode_system,
+    encode_operator_id,
+)
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
+from drone_rid_spoofer.transport.wifi import WifiBackend
+from drone_rid_spoofer.transport.gb import GbBackend
+from drone_rid_spoofer.transport.ble import BleBackend
+from drone_rid_spoofer.transport.nan import NanBackend
 
 logger = logging.getLogger(__name__)
 
 
 class DroneSpoofer:
-    """Main drone spoofing controller."""
+    """Main drone spoofing controller.
+
+    GB 42590-2023 发送间隔要求：
+      - 动态报文（Location）每 1 秒发送 1 次
+      - 静态报文（Basic ID, Self ID, System, Operator ID）每 3 秒发送 1 次
+    """
+
+    # 静态报文类型列表（按轮转顺序）
+    STATIC_MSG_TYPES = ("Basic ID", "Self ID", "System", "Operator ID")
 
     def __init__(self, args: argparse.Namespace, backends: List[TransportBackend]):
         self.args = args
         self.backends = backends
         self.base_location = args.location
+        self._send_counters: dict = {}  # per-drone counter: serial -> int
+        self._static_indices: dict = {}  # per-drone static rotation index
+        self._has_wifi = any(isinstance(b, (WifiBackend, GbBackend, NanBackend))
+                            for b in backends)
+        self._has_ble = any(isinstance(b, BleBackend) for b in backends)
         self._setup_logging()
 
     def _setup_logging(self) -> None:
@@ -43,10 +66,96 @@ class DroneSpoofer:
         logging.getLogger().setLevel(level)
 
     def _send(self, drone: DroneState) -> None:
-        """Build messages and send via all backends."""
-        messages = build_all_messages(drone)
+        """Build messages and send via all backends.
+
+        按 GB 42590 标准：
+        - 动态报文（Location）每次发送
+        - 静态报文（Basic ID/Self ID/System/Operator ID）逐条轮转，每次只发 1 条
+        """
+        key = drone.serial
+        counter = self._send_counters.get(key, 0)
+        static_idx = self._static_indices.get(key, 0)
+        self._send_counters[key] = counter + 1
+
+        # 判断是否有 GB backend（proto=1）还是 ASTM backend（proto=2）
+        has_gb = any(isinstance(b, GbBackend) for b in self.backends)
+        proto = 1 if has_gb else 2
+
+        # 构建动态报文
+        dynamic_msgs = [encode_location(drone, proto=proto,
+                                        timestamp_offset=drone.timestamp_offset)]
+
+        # 构建静态报文列表（按轮转顺序）
+        static_pool = [
+            ("Basic ID", encode_basic_id(drone.serial, proto=proto)),
+            ("Self ID", encode_self_id(
+                b"Spoofing test" if proto == 2 else b"GB Spoofer", proto=proto)),
+            ("System", encode_system(drone.pilot_location[0], drone.pilot_location[1],
+                                     proto=proto, operator_altitude=drone.operator_altitude)),
+            ("Operator ID", encode_operator_id(operator_id=drone.operator_id, proto=proto)),
+        ]
+
+        # 选择当前轮转到的静态报文
+        static_name, static_msg = static_pool[static_idx % len(static_pool)]
+        self._static_indices[key] = static_idx + 1
+
+        # 构建本次消息列表：Location + 1 条静态报文
+        messages = dynamic_msgs + [static_msg]
+        msg_type = f"动态(Location) + 静态({static_name})"
+
         for backend in self.backends:
             backend.send_messages(drone, messages)
+
+        self._log_drone_params(drone, msg_type, static_name)
+
+    def _get_transport_names(self) -> str:
+        """返回当前激活的传输协议名称。"""
+        names = []
+        for b in self.backends:
+            if isinstance(b, GbBackend):
+                names.append("GB 42590 Wi-Fi Beacon")
+            elif isinstance(b, WifiBackend):
+                names.append("ASTM Wi-Fi Beacon")
+            elif isinstance(b, NanBackend):
+                names.append("Wi-Fi NAN")
+            elif isinstance(b, BleBackend):
+                names.append("BLE")
+            else:
+                names.append(type(b).__name__)
+        return " + ".join(names)
+
+    def _log_drone_params(self, drone: DroneState, msg_type: str = "",
+                          static_name: str = "") -> None:
+        """按 Remote ID 标准消息块分类输出无人机参数，去重避免重复。"""
+        transport = self._get_transport_names()
+        lat = drone.lat / 1e7
+        lng = drone.lng / 1e7
+        pilot_lat = drone.pilot_location[0] / 1e7
+        pilot_lng = drone.pilot_location[1] / 1e7
+
+        # 根据当前使用的传输类型决定显示哪些地址
+        addr_parts = []
+        if self._has_wifi:
+            addr_parts.append(f"MAC(Wi-Fi)={drone.mac_address}")
+        if self._has_ble:
+            addr_parts.append(f"BLE={drone.ble_address}")
+        addr_str = "  ".join(addr_parts) if addr_parts else "N/A"
+
+        lines = [
+            f"  [传输] {transport}  |  本次发送: {msg_type}",
+            f"  [Basic ID]     ID={drone.serial.decode():<20} UA=Helicopter/Multirotor  "
+            f"{addr_str}",
+            f"  [Location]     Lat={lat:.6f}°  Lng={lng:.6f}°  "
+            f"Alt(Geo)={drone.geodetic_altitude:.1f}m  Alt(Baro)={drone.pressure_altitude:.1f}m  "
+            f"Height={drone.height:.1f}m  Speed(H)={drone.speed:.2f}m/s  "
+            f"Speed(V)={drone.vertical_speed:.2f}m/s  Dir={drone.direction:.1f}°",
+            f"  [Self ID]      Text=\"Spoofing test\"",
+            f"  [System]       Pilot=({pilot_lat:.6f}, {pilot_lng:.6f})  "
+            f"OpAlt={drone.operator_altitude:.1f}m  "
+            f"AreaCount=0  Radius=0  Ceiling=0  Floor=0",
+            f"  [Operator ID]  ID={drone.operator_id}",
+        ]
+        logger.info("\n".join(lines))
 
     def run_manual_mode(self) -> None:
         """Run controlled drone spoofing with keyboard input."""
@@ -55,14 +164,18 @@ class DroneSpoofer:
         serial = self.args.serial.encode() if self.args.serial else get_random_serial_number()
         lat, lng = random_location(*self.args.location, 10000)
         pilot_loc = get_random_pilot_location(lat, lng)
-        mac_addr = generate_wifi_mac()
-        ble_addr = generate_ble_mac()
+        mac_addr = generate_wifi_mac() if self._has_wifi else "00:00:00:00:00:00"
+        ble_addr = generate_ble_mac() if self._has_ble else "00:00:00:00:00:00"
 
         drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr,
                            operator_id=get_random_operator_id(),
-                           operator_altitude=random.uniform(0.0, 50.0))
+                           operator_altitude=random.uniform(0.0, 50.0),
+                           anchor_lat=lat, anchor_lng=lng)
         self._seed_kinematics(drone)
-        logger.info(f"Drone {serial.decode()} created at [{lat}, {lng}] with Wi-Fi MAC {mac_addr}, BLE addr {ble_addr}")
+        logger.info(f"Drone created: Serial={serial.decode()} "
+                    f"Lat={lat/1e7:.6f}° Lng={lng/1e7:.6f}° "
+                    f"Alt={drone.geodetic_altitude:.1f}m Speed={drone.speed:.2f}m/s "
+                    f"Dir={drone.direction:.1f}°")
 
         self._run_manual_control_loop(drone)
 
@@ -81,7 +194,6 @@ class DroneSpoofer:
 
                 if datetime.now() >= next_send:
                     self._send(drone)
-                    logger.info(f"Sent packet for {drone.serial.decode()}")
                     next_send = datetime.now() + timedelta(seconds=self.args.interval)
 
                 time.sleep(self.args.interval)
@@ -126,15 +238,19 @@ class DroneSpoofer:
             serial = get_random_serial_number()
             lat, lng = random_location(base_lat, base_lng, 50000)
             pilot_loc = get_random_pilot_location(lat, lng)
-            mac_addr = generate_wifi_mac()
-            ble_addr = generate_ble_mac()
+            mac_addr = generate_wifi_mac() if self._has_wifi else "00:00:00:00:00:00"
+            ble_addr = generate_ble_mac() if self._has_ble else "00:00:00:00:00:00"
 
             drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr,
                                operator_id=get_random_operator_id(),
-                               operator_altitude=random.uniform(0.0, 50.0))
+                               operator_altitude=random.uniform(0.0, 50.0),
+                               anchor_lat=base_lat, anchor_lng=base_lng)
             self._seed_kinematics(drone)
             drones.append(drone)
-            logger.info(f"Drone {serial.decode()} created with Wi-Fi MAC {mac_addr}, BLE addr {ble_addr}")
+            logger.info(f"Drone created: Serial={serial.decode()} "
+                        f"Lat={lat/1e7:.6f}° Lng={lng/1e7:.6f}° "
+                        f"Alt={drone.geodetic_altitude:.1f}m Speed={drone.speed:.2f}m/s "
+                        f"Dir={drone.direction:.1f}°")
 
         return drones
 
@@ -193,8 +309,8 @@ class DroneSpoofer:
 
             serial = entry.get("serial")
             serial_bytes = serial.encode() if serial else get_random_serial_number()
-            mac_addr = entry.get("mac") or generate_wifi_mac()
-            ble_addr = entry.get("ble_mac") or generate_ble_mac()
+            mac_addr = entry.get("mac") or (generate_wifi_mac() if self._has_wifi else "00:00:00:00:00:00")
+            ble_addr = entry.get("ble_mac") or (generate_ble_mac() if self._has_ble else "00:00:00:00:00:00")
             lifespan_seconds = entry.get("lifespan_seconds", 0)
             end_time = None
             if lifespan_seconds and lifespan_seconds > 0:
@@ -205,6 +321,13 @@ class DroneSpoofer:
             operator_id = entry.get("operator_id", get_random_operator_id())
             operator_altitude = float(entry.get("operator_altitude",
                                                 random.uniform(0.0, 50.0)))
+
+            # Anchor point for boundary constraint: use start_location if provided,
+            # otherwise fall back to the global scene center
+            if start_location:
+                anchor_lat, anchor_lng = lat, lng
+            else:
+                anchor_lat, anchor_lng = base_lat, base_lng
 
             drone = DroneState(
                 serial=serial_bytes,
@@ -220,10 +343,16 @@ class DroneSpoofer:
                 timestamp_offset=float(timestamp_offset),
                 operator_id=operator_id,
                 operator_altitude=operator_altitude,
+                anchor_lat=anchor_lat,
+                anchor_lng=anchor_lng,
             )
             self._seed_kinematics(drone, overrides=self._extract_kinematic_overrides(entry))
             drones.append(drone)
-            logger.info(f"Drone {serial_bytes.decode()} created with Wi-Fi MAC {mac_addr}, BLE addr {ble_addr} mode={mode}")
+            logger.info(f"Drone created: Serial={serial_bytes.decode()} "
+                        f"Lat={lat/1e7:.6f}° Lng={lng/1e7:.6f}° "
+                        f"Alt={drone.geodetic_altitude:.1f}m Speed={drone.speed:.2f}m/s "
+                        f"Dir={drone.direction:.1f}° Mode={mode} "
+                        f"Anchor=({anchor_lat/1e7:.6f},{anchor_lng/1e7:.6f})")
 
         return drones
 
@@ -250,7 +379,7 @@ class DroneSpoofer:
                         if not drone.active:
                             continue
                         if drone.mode == "random":
-                            drone.update_location(10000)
+                            drone.update_location(self.args.interval)
                             drone.drift_kinematics()
                         elif drone.mode == "waypoints":
                             self._update_waypoints(drone, now)
@@ -259,7 +388,7 @@ class DroneSpoofer:
 
                     packet_batch_count += 1
                     active_count = sum(1 for drone in drones if drone.active)
-                    logger.info(f"Sent batch {packet_batch_count} ({active_count} packets)")
+                    logger.info(f"--- Batch {packet_batch_count} sent ({active_count} packets) ---")
                     if active_count == 0:
                         logger.info("All drones expired; stopping automatic mode")
                         break
