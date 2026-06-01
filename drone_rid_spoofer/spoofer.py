@@ -68,45 +68,33 @@ class DroneSpoofer:
     def _send(self, drone: DroneState) -> None:
         """Build messages and send via all backends.
 
-        按 GB 42590 标准：
-        - 动态报文（Location）每次发送
-        - 静态报文（Basic ID/Self ID/System/Operator ID）逐条轮转，每次只发 1 条
+        按 GB 42590 / ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
+        Basic ID → Location → Self ID → System → Operator ID
         """
         key = drone.serial
         counter = self._send_counters.get(key, 0)
-        static_idx = self._static_indices.get(key, 0)
         self._send_counters[key] = counter + 1
 
-        # 判断是否有 GB backend（proto=1）还是 ASTM backend（proto=2）
+        # 判断是否有 GB backend（proto=2）还是 ASTM backend（proto=2）
         has_gb = any(isinstance(b, GbBackend) for b in self.backends)
-        proto = 1 if has_gb else 2
+        proto = 2 if has_gb else 2
 
-        # 构建动态报文
-        dynamic_msgs = [encode_location(drone, proto=proto,
-                                        timestamp_offset=drone.timestamp_offset)]
-
-        # 构建静态报文列表（按轮转顺序）
-        static_pool = [
-            ("Basic ID", encode_basic_id(drone.serial, proto=proto)),
-            ("Self ID", encode_self_id(
-                b"Spoofing test" if proto == 2 else b"GB Spoofer", proto=proto)),
-            ("System", encode_system(drone.pilot_location[0], drone.pilot_location[1],
-                                     proto=proto, operator_altitude=drone.operator_altitude)),
-            ("Operator ID", encode_operator_id(operator_id=drone.operator_id, proto=proto)),
+        # 构建完整的 5 条消息（按标准顺序）
+        messages = [
+            encode_basic_id(drone.serial, proto=proto),
+            encode_location(drone, proto=proto,
+                            timestamp_offset=drone.timestamp_offset),
+            encode_self_id(b"GB Spoofer", proto=proto),
+            encode_system(drone.pilot_location[0], drone.pilot_location[1],
+                          proto=proto, operator_altitude=drone.operator_altitude),
+            encode_operator_id(operator_id=drone.operator_id, proto=proto),
         ]
-
-        # 选择当前轮转到的静态报文
-        static_name, static_msg = static_pool[static_idx % len(static_pool)]
-        self._static_indices[key] = static_idx + 1
-
-        # 构建本次消息列表：Location + 1 条静态报文
-        messages = dynamic_msgs + [static_msg]
-        msg_type = f"动态(Location) + 静态({static_name})"
+        msg_type = "完整 5 条消息 (Basic ID + Location + Self ID + System + Operator ID)"
 
         for backend in self.backends:
             backend.send_messages(drone, messages)
 
-        self._log_drone_params(drone, msg_type, static_name)
+        self._log_drone_params(drone, msg_type, "All")
 
     def _get_transport_names(self) -> str:
         """返回当前激活的传输协议名称。"""

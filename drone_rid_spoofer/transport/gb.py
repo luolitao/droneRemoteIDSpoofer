@@ -92,12 +92,18 @@ class GbBackend(TransportBackend):
         except subprocess.CalledProcessError as e:
             logger.warning(f"Could not lock channel on {self.interface}: {e}")
 
+    @staticmethod
+    def _channel_to_freq(channel: int) -> int:
+        """Convert 2.4 GHz Wi-Fi channel to frequency in MHz."""
+        return 2412 + (channel - 1) * 5
+
     def _build_radiotap(self) -> dot11.Packet:
         """Build Radiotap header with rate + TX flags for reliable injection."""
+        freq = self._channel_to_freq(self.channel)
         return dot11.RadioTap(
             mac_timestamp=0,
             Rate=6,
-            ChannelFrequency=2437,
+            ChannelFrequency=freq,
             ChannelFlags=0x00a0,
         )
 
@@ -144,16 +150,19 @@ class GbBackend(TransportBackend):
             counter = self._send_counters.get(drone.serial, 0)
             self._send_counters[drone.serial] = (counter + 1) % 256
 
-        # 根据传入的 messages 构建 GB Message Pack（而非硬编码全部 5 条）
+        # 根据传入的 messages 构建 GB Message Pack
         msg_count = len(messages)
         body = b''.join(messages)
-        header = bytes([
-            counter & 0xFF,
-            (MsgType.PACK << 4) | 0x01,  # proto=1
+        # GB 42590 Vendor IE 数据格式（对齐 opendroneid-core-c）:
+        #   ODID_service_info: [message_counter(1)] [reserved(1)]
+        #   Message Pack: [MsgType|Proto(1)] [MsgSize(1)] [MsgCount(1)] [messages...]
+        service_info = bytes([counter & 0xFF, 0x00])  # counter + reserved
+        pack_header = bytes([
+            (MsgType.PACK << 4) | 0x02,  # proto=2 (ASTM F3411-22a)
             MESSAGE_SIZE,
             msg_count,
         ])
-        gb_payload = header + body
+        gb_payload = service_info + pack_header + body
 
         serial_str = drone.serial.decode('ascii', errors='replace')
         ssid = (self.SSID_PREFIX + serial_str)[:self.SSID_MAX_LEN]

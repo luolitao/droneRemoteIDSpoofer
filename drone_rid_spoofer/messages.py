@@ -338,11 +338,13 @@ def build_message_pack(messages: List[bytes], proto: int = 2) -> bytes:
     return header + b''.join(messages)
 
 
-def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes:
-    """Build GB 42590 vendor IE payload with counter + Message Pack.
+def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 2) -> bytes:
+    """Build GB 42590 vendor IE payload with ODID_service_info + Message Pack.
 
-    Layout: [counter(1)] [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount=5(1)]
-            [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
+    Layout (aligned with opendroneid-core-c):
+      ODID_service_info: [message_counter(1)] [reserved(1)]
+      Message Pack: [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount=5(1)]
+                    [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
 
     Includes pilot/operator information per GB 42590-2023 requirements.
     """
@@ -355,13 +357,13 @@ def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes
         + encode_operator_id(operator_id=drone.operator_id, proto=proto)
     )
     msg_count = 5
-    header = bytes([
-        send_counter & 0xFF,
+    service_info = bytes([send_counter & 0xFF, 0x00])  # counter + reserved
+    pack_header = bytes([
         (MsgType.PACK << 4) | (proto & 0x0F),
         MESSAGE_SIZE,
         msg_count,
     ])
-    return header + messages
+    return service_info + pack_header + messages
 
 
 def decode_message_pack(data: bytes, msg_count: int, msg_size: int = MESSAGE_SIZE) -> Optional[Dict]:

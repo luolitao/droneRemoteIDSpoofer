@@ -365,47 +365,48 @@ drone = DroneState(
     operator_altitude=20.0,
 )
 
-pack = build_gb_pack(drone, send_counter=42, proto=1)
+pack = build_gb_pack(drone, send_counter=42, proto=2)
 
-# 总长度：counter(1) + header(3) + 5*25 = 4 + 125 = 129
-check("GB Pack 总长度 129 字节", len(pack) == 129, f"got {len(pack)}")
+# 总长度：service_info(2) + pack_header(3) + 5*25 = 5 + 125 = 130
+check("GB Pack 总长度 130 字节", len(pack) == 130, f"got {len(pack)}")
 
-# Counter
+# ODID_service_info (bytes 0-1)
 check("Counter = 42", pack[0] == 42, f"got {pack[0]}")
+check("Reserved = 0x00", pack[1] == 0x00, f"got 0x{pack[1]:02X}")
 
-# Message Pack header (bytes 1-3)
-check("Pack MsgType = 0xF", pack[1] >> 4 == 0xF, f"got 0x{pack[1]>>4:X}")
-check("Pack Proto = 1", pack[1] & 0x0F == 1, f"got {pack[1] & 0x0F}")
-check("MsgSize = 25", pack[2] == 25, f"got {pack[2]}")
-check("MsgCount = 5", pack[3] == 5, f"got {pack[3]}")
+# Message Pack header (bytes 2-4)
+check("Pack MsgType = 0xF", pack[2] >> 4 == 0xF, f"got 0x{pack[2]>>4:X}")
+check("Pack Proto = 2", pack[2] & 0x0F == 2, f"got {pack[2] & 0x0F}")
+check("MsgSize = 25", pack[3] == 25, f"got {pack[3]}")
+check("MsgCount = 5", pack[4] == 5, f"got {pack[4]}")
 
-# 逐条消息验证
-msg_basic = pack[4:29]
+# 逐条消息验证 (从 byte 5 开始)
+msg_basic = pack[5:30]
 check("Message#1: Basic ID 类型=0x0", msg_basic[0] >> 4 == 0x0, f"got 0x{msg_basic[0]>>4:X}")
 check("Message#1: 包含 'GB_PACK_01'", b"GB_PACK_01" in msg_basic[2:22])
 
-msg_loc = pack[29:54]
+msg_loc = pack[30:55]
 check("Message#2: Location 类型=0x1", msg_loc[0] >> 4 == 0x1, f"got 0x{msg_loc[0]>>4:X}")
 loc_lat = struct.unpack("<i", msg_loc[5:9])[0]
 check("Message#2: Latitude = 399267000", loc_lat == 399267000, f"got {loc_lat}")
 
-msg_self = pack[54:79]
+msg_self = pack[55:80]
 check("Message#3: Self ID 类型=0x3", msg_self[0] >> 4 == 0x3, f"got 0x{msg_self[0]>>4:X}")
 check("Message#3: 描述 = 'GB Spoofer'", msg_self[2:12] == b"GB Spoofer")
 
-msg_sys = pack[79:104]
+msg_sys = pack[80:105]
 check("Message#4: System 类型=0x4", msg_sys[0] >> 4 == 0x4, f"got 0x{msg_sys[0]>>4:X}")
 sys_op_lat = struct.unpack("<i", msg_sys[2:6])[0]
 check("Message#4: Operator Lat = 399267000", sys_op_lat == 399267000, f"got {sys_op_lat}")
 sys_op_alt = struct.unpack("<H", msg_sys[18:20])[0]
 check("Message#4: Operator Alt = 2040 (20m)", sys_op_alt == 2040, f"got {sys_op_alt}")
 
-msg_op = pack[104:129]
+msg_op = pack[105:130]
 check("Message#5: Operator ID 类型=0x5", msg_op[0] >> 4 == 0x5, f"got 0x{msg_op[0]>>4:X}")
 check("Message#5: ID = 'GB-OP-PACK-01'", msg_op[2:15] == b"GB-OP-PACK-01")
 
-# Round-trip decode
-fields = decode_message_pack(pack[4:], msg_count=5)
+# Round-trip decode: Message Pack body starts after service_info(2) + pack_header(3) = offset 5
+fields = decode_message_pack(pack[5:], msg_count=5)
 # decode_message_pack 展开所有子字段（Location 一条就有 11 个子字段），总字段数 > 5
 check("decode: >= 5 个字段解码成功", len(fields) >= 5, f"got {len(fields)} fields: {list(fields.keys())}")
 check("decode: Basic ID 存在", "Basic ID" in fields)
@@ -424,7 +425,7 @@ section("Test 7: Counter 递增机制")
 
 counters = []
 for i in range(5):
-    pack = build_gb_pack(drone, send_counter=i, proto=1)
+    pack = build_gb_pack(drone, send_counter=i, proto=2)
     counters.append(pack[0])
 
 check("Counter[0] = 0", counters[0] == 0)
@@ -434,7 +435,7 @@ check("Counter[3] = 3", counters[3] == 3)
 check("Counter[4] = 4", counters[4] == 4)
 
 # Counter 溢出回绕
-pack_wrap = build_gb_pack(drone, send_counter=256, proto=1)
+pack_wrap = build_gb_pack(drone, send_counter=256, proto=2)
 check("Counter 256 → 0 (mod 256)", pack_wrap[0] == 0, f"got {pack_wrap[0]}")
 
 
@@ -541,7 +542,7 @@ try:
     SUPPORTED_RATES = b'\x8c'
 
     # 构造完整的 GB beacon
-    gb_payload = build_gb_pack(drone, send_counter=0, proto=1)
+    gb_payload = build_gb_pack(drone, send_counter=0, proto=2)
     ssid = ("GB-" + drone.serial.decode('ascii', errors='replace'))[:32]
     vendor_data = OUI + bytes([OUI_TYPE]) + gb_payload
 
@@ -600,9 +601,9 @@ try:
             check("OUI = FA:0B:BC", oui_data[:3] == b'\xfa\x0b\xbc',
                   f"got {oui_data[:3].hex(':')}")
             check("OUI Type = 0x0D", oui_data[3] == 0x0D, f"got 0x{oui_data[3]:02X}")
-            # 验证 GB payload 长度 = 129 字节
+            # 验证 GB payload 长度 = 130 字节 (service_info(2) + pack_header(3) + 5*25)
             gb_data = oui_data[4:]
-            check("GB Payload = 129 字节", len(gb_data) == 129, f"got {len(gb_data)}")
+            check("GB Payload = 130 字节", len(gb_data) == 130, f"got {len(gb_data)}")
             break
         off += 2 + ie_len
     check("Vendor IE (221) 存在", found_ie221)
