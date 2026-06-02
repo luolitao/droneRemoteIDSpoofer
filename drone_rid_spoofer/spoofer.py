@@ -33,6 +33,7 @@ from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
 from drone_rid_spoofer.transport.wifi import WifiBackend
 from drone_rid_spoofer.transport.gb42590 import GB42590Backend
+from drone_rid_spoofer.transport.gb46750 import GB46750Backend
 from drone_rid_spoofer.transport.ble import BleBackend
 from drone_rid_spoofer.transport.nan import NanBackend
 
@@ -56,7 +57,7 @@ class DroneSpoofer:
         self.base_location = args.location
         self._send_counters: dict = {}  # per-drone counter: serial -> int
         self._static_indices: dict = {}  # per-drone static rotation index
-        self._has_wifi = any(isinstance(b, (WifiBackend, GB42590Backend, NanBackend))
+        self._has_wifi = any(isinstance(b, (WifiBackend, GB42590Backend, GB46750Backend, NanBackend))
                             for b in backends)
         self._has_ble = any(isinstance(b, BleBackend) for b in backends)
         self._setup_logging()
@@ -70,15 +71,18 @@ class DroneSpoofer:
 
         按 GB 42590 / ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
         Basic ID → Location → Self ID → System → Operator ID
+
+        GB 46750 使用自有数据包格式，不需要 ASTM 消息。
         """
         key = drone.serial
         counter = self._send_counters.get(key, 0)
         self._send_counters[key] = counter + 1
 
         has_gb = any(isinstance(b, GB42590Backend) for b in self.backends)
-        proto = 2 if has_gb else 2
+        has_gb46750 = any(isinstance(b, GB46750Backend) for b in self.backends)
+        proto = 2
 
-        # 构建完整的 5 条消息（按标准顺序）
+        # Build ASTM messages (used by GB 42590, WiFi, BLE, NAN backends)
         messages = [
             encode_basic_id(drone.serial, proto=proto),
             encode_location(drone, proto=proto,
@@ -88,12 +92,11 @@ class DroneSpoofer:
                           proto=proto, operator_altitude=drone.operator_altitude),
             encode_operator_id(operator_id=drone.operator_id, proto=proto),
         ]
-        msg_type = "完整 5 条消息 (Basic ID + Location + Self ID + System + Operator ID)"
 
         for backend in self.backends:
             backend.send_messages(drone, messages)
 
-        self._log_drone_params(drone, msg_type, "All")
+        # self._log_drone_params(drone)
 
     def _get_transport_names(self) -> str:
         """返回当前激活的传输协议名称。"""
@@ -101,6 +104,8 @@ class DroneSpoofer:
         for b in self.backends:
             if isinstance(b, GB42590Backend):
                 names.append("GB 42590 Wi-Fi Beacon")
+            elif isinstance(b, GB46750Backend):
+                names.append("GB 46750 Wi-Fi Beacon")
             elif isinstance(b, WifiBackend):
                 names.append("ASTM Wi-Fi Beacon")
             elif isinstance(b, NanBackend):
@@ -356,7 +361,7 @@ class DroneSpoofer:
 
                     packet_batch_count += 1
                     active_count = sum(1 for drone in drones if drone.active)
-                    logger.info(f"--- Batch {packet_batch_count} sent ({active_count} packets) ---")
+                    # logger.info(f"--- Batch {packet_batch_count} sent ({active_count} packets) ---")
                     if active_count == 0:
                         logger.info("All drones expired; stopping automatic mode")
                         break

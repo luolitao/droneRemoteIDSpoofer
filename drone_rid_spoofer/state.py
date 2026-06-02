@@ -36,6 +36,16 @@ class DroneState:
     anchor_lng: int = 0             # anchor point lng (int32×10⁻⁷) for boundary constraint
     max_roam_radius_m: float = 1000.0  # max distance from anchor (meters)
 
+    # GB 46750-2025 specific fields
+    registration_mark: str = ""     # 实名登记标志 (8 chars max)
+    operation_category: int = 0     # 运行类别 (0=未定义,1=开放类,2=特定类,3=审定类)
+    ua_classification: int = 0      # UA分类 (0=微型,1=轻型,2=小型,3=中型,4=大型)
+    station_location_type: int = 0  # 遥控站位置类型 (0=起飞点,1=遥控站)
+    horizontal_accuracy: int = 0    # 水平精度 (NACp, 0-12)
+    vertical_accuracy: int = 0      # 垂直精度 (GVA, 0-6)
+    speed_accuracy: int = 0         # 速度精度 (NACv, 0-4)
+    timestamp_accuracy: int = 0     # 时间戳精度 (0-8)
+
     # Earth constants (WGS-84)
     _METERS_PER_DEG_LAT = 111320.0  # meters per degree of latitude
 

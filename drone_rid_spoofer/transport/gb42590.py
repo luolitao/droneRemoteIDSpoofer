@@ -55,7 +55,7 @@ class GB42590Backend(TransportBackend):
     OUI = b'\xfa\x0b\xbc'       # OUI/CID 固定取值 0xFA0BBC
     VEND_TYPE = 0x0D            # Vend Type 固定取值 0x0D
     DEST_ADDR = 'ff:ff:ff:ff:ff:ff'
-    SSID_PREFIX = 'GB-'
+    SSID_PREFIX = 'GB42950-'
     SSID_MAX_LEN = 32
     SUPPORTED_RATES = b'\x82\x84\x8b\x96'
     EXTENDED_SUPPORTED_RATES = b'\x0c\x12\x18\x24\x30\x48\x60\x6c'
@@ -125,7 +125,7 @@ class GB42590Backend(TransportBackend):
     def _log_beacon_frame(self, frame, serial: bytes, seq_num: int):
         """Print detailed beacon frame structure matching GB 42590 Table A.1."""
         raw = bytes(frame)
-        logger.info(f"\n{'='*60}")
+        logger.info(f"{'='*60}")
         logger.info(f"  GB Beacon Frame Dump (Serial={serial.decode('ascii', errors='replace')}, Seq={seq_num})")
         logger.info(f"{'='*60}")
 
@@ -277,9 +277,11 @@ class GB42590Backend(TransportBackend):
         # Vend Type + Message Counter + Message Pack
         msg_count_byte = len(messages) & 0xFF
         # Message Pack header: [MsgType|Proto(1)] [MsgSize(1)] [MsgCount(1)]
-        pack_header = bytes([(MsgType.PACK << 4) | 0x02, MESSAGE_SIZE, msg_count_byte])
+        pack_header = bytes([(MsgType.PACK << 4) | 0x01, MESSAGE_SIZE, msg_count_byte])
+        
         # Vendor IE data (after OUI): VendType(0x0D) | MessageCounter | MessagePack
         vendor_data = bytes([self.VEND_TYPE, self._counter]) + pack_header + b''.join(messages)
+        
         self._counter = (self._counter + 1) & 0xFF  # 循环计数: 255后回到0
 
         serial_str = drone.serial.decode('ascii', errors='replace')

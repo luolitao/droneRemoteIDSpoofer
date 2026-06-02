@@ -49,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("-t", "--transport", type=str, default=None,
-                        help="Transport backend(s): wifi, ble, nan, gb, both (wifi+ble), "
+                        help="Transport backend(s): wifi, ble, nan, gb, gb46750, both (wifi+ble), "
                              "or comma-separated combos like 'nan,ble' (default: wifi)")
     parser.add_argument("--ble-adapter", type=str, default=None,
                         help="BLE adapter name (default: hci0). If BLE transport is used")
@@ -87,7 +87,7 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
     """Create transport backend instances based on configuration.
 
     Supports individual transports and combinations:
-      - "wifi", "ble", "nan", "gb" — single transport
+      - "wifi", "ble", "nan", "gb", "gb46750" — single transport
       - "both" — WiFi Beacon + BLE
       - comma-separated list — any combination, e.g. "nan,ble" or "wifi,nan,gb"
     """
@@ -113,6 +113,11 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
         elif t == "gb":
             from drone_rid_spoofer.transport.gb42590 import GB42590Backend
             backends.append(GB42590Backend(interface, channel=wifi_channel,
+                                           beacon_interval=wifi_beacon_interval))
+
+        elif t == "gb46750":
+            from drone_rid_spoofer.transport.gb46750 import GB46750Backend
+            backends.append(GB46750Backend(interface, channel=wifi_channel,
                                            beacon_interval=wifi_beacon_interval))
 
     return backends
