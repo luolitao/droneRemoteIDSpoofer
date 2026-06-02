@@ -284,24 +284,32 @@ def decode_system(msg: bytes) -> Dict:
 
 # ── Operator ID ─────────────────────────────────────────────────────────
 
-def encode_operator_id(operator_id: str = "", proto: int = 1) -> bytes:
+def encode_operator_id(operator_id: str = "", proto: int = 2,
+                       operator_id_type: int = 0) -> bytes:
     """Encode Operator ID message (MessageType=0x5, 25 bytes).
 
-    Layout: [MsgType|Proto(1)] [Reserved(1)] [OperatorID(20)] [Reserved(3)]
-    OperatorID is a 20-byte UTF-8 string (typically a CAA registration ID).
+    Layout per opendroneid-core-c (ASTM F3411-22a):
+      [MsgType|Proto(1)] [OperatorIdType(1)] [OperatorId(20)] [Reserved(3)]
+
+    OperatorIdType: 0 = Operator ID (CAA registration or equivalent).
+    OperatorId is a 20-byte UTF-8 string.
     """
     msg = bytearray(MESSAGE_SIZE)
     msg[0] = (MsgType.OPERATOR_ID << 4) | (proto & 0x0F)
+    msg[1] = operator_id_type & 0xFF
     # Write operator ID into bytes 2-21 (20 bytes max)
     op_id_bytes = operator_id.encode('utf-8')[:20].ljust(20, b'\x00')
     msg[2:22] = op_id_bytes
+    # bytes 22-24 are reserved (already zero from bytearray init)
     return bytes(msg)
 
 
 def decode_operator_id(msg: bytes) -> Dict:
     """Decode an Operator ID message (25 bytes) into a dict."""
+    operator_id_type = msg[1]
+    type_names = {0: "Operator ID"}
     op_id = msg[2:22].rstrip(b'\x00').decode('utf-8', errors='replace')
-    return {"Operator ID": op_id}
+    return {"Operator ID": f"{op_id} (type={type_names.get(operator_id_type, str(operator_id_type))})"}
 
 
 # ── Message-level dispatch ──────────────────────────────────────────────
@@ -339,31 +347,34 @@ def build_message_pack(messages: List[bytes], proto: int = 2) -> bytes:
 
 
 def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 2) -> bytes:
-    """Build GB 42590 vendor IE payload with ODID_service_info + Message Pack.
+    """Build GB 42590 vendor IE data per Appendix A1 Table A.1.
 
-    Layout (aligned with opendroneid-core-c):
-      ODID_service_info: [message_counter(1)] [reserved(1)]
-      Message Pack: [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount=5(1)]
-                    [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
+    Layout:
+      Vend Type(1) | Message Counter(1) | Message Pack(3 + N×25)
 
-    Includes pilot/operator information per GB 42590-2023 requirements.
+    The Message Pack consists of:
+      [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount(1)]
+      [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
+
+    Returns the complete vendor data (after OUI) for a single drone.
     """
     messages = (
         encode_basic_id(drone.serial, proto=proto)
         + encode_location(drone, proto=proto)
-        + encode_self_id(proto=proto)
+        + encode_self_id(b"GB42590 Drone Remote ID", proto=proto)
         + encode_system(drone.pilot_location[0], drone.pilot_location[1],
                         proto=proto, operator_altitude=drone.operator_altitude)
         + encode_operator_id(operator_id=drone.operator_id, proto=proto)
     )
     msg_count = 5
-    service_info = bytes([send_counter & 0xFF, 0x00])  # counter + reserved
+    # Vend Type (0x0D) + Message Counter
+    vend_and_counter = bytes([0x0D, send_counter & 0xFF])
     pack_header = bytes([
         (MsgType.PACK << 4) | (proto & 0x0F),
         MESSAGE_SIZE,
         msg_count,
     ])
-    return service_info + pack_header + messages
+    return vend_and_counter + pack_header + messages
 
 
 def decode_message_pack(data: bytes, msg_count: int, msg_size: int = MESSAGE_SIZE) -> Optional[Dict]:

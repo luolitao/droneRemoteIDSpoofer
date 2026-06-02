@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Continuously send GB beacons (same logic as GbBackend) and verify on RX.
+"""Continuously send GB beacons (same logic as GB42590Backend) and verify on RX.
 
 Usage:
     sudo python3 stress_test.py wlan1 wlan2 6

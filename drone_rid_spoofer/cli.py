@@ -111,9 +111,9 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             backends.append(NanBackend(interface, channel=nan_channel))
 
         elif t == "gb":
-            from drone_rid_spoofer.transport.gb import GbBackend
-            backends.append(GbBackend(interface, channel=wifi_channel,
-                                      beacon_interval=wifi_beacon_interval))
+            from drone_rid_spoofer.transport.gb42590 import GB42590Backend
+            backends.append(GB42590Backend(interface, channel=wifi_channel,
+                                           beacon_interval=wifi_beacon_interval))
 
     return backends
 

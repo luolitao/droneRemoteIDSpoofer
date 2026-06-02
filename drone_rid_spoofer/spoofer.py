@@ -32,7 +32,7 @@ from drone_rid_spoofer.messages import (
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
 from drone_rid_spoofer.transport.wifi import WifiBackend
-from drone_rid_spoofer.transport.gb import GbBackend
+from drone_rid_spoofer.transport.gb42590 import GB42590Backend
 from drone_rid_spoofer.transport.ble import BleBackend
 from drone_rid_spoofer.transport.nan import NanBackend
 
@@ -56,7 +56,7 @@ class DroneSpoofer:
         self.base_location = args.location
         self._send_counters: dict = {}  # per-drone counter: serial -> int
         self._static_indices: dict = {}  # per-drone static rotation index
-        self._has_wifi = any(isinstance(b, (WifiBackend, GbBackend, NanBackend))
+        self._has_wifi = any(isinstance(b, (WifiBackend, GB42590Backend, NanBackend))
                             for b in backends)
         self._has_ble = any(isinstance(b, BleBackend) for b in backends)
         self._setup_logging()
@@ -75,8 +75,7 @@ class DroneSpoofer:
         counter = self._send_counters.get(key, 0)
         self._send_counters[key] = counter + 1
 
-        # 判断是否有 GB backend（proto=2）还是 ASTM backend（proto=2）
-        has_gb = any(isinstance(b, GbBackend) for b in self.backends)
+        has_gb = any(isinstance(b, GB42590Backend) for b in self.backends)
         proto = 2 if has_gb else 2
 
         # 构建完整的 5 条消息（按标准顺序）
@@ -84,7 +83,7 @@ class DroneSpoofer:
             encode_basic_id(drone.serial, proto=proto),
             encode_location(drone, proto=proto,
                             timestamp_offset=drone.timestamp_offset),
-            encode_self_id(b"GB Spoofer", proto=proto),
+            encode_self_id(b"GB42590 Drone Remote ID", proto=proto),
             encode_system(drone.pilot_location[0], drone.pilot_location[1],
                           proto=proto, operator_altitude=drone.operator_altitude),
             encode_operator_id(operator_id=drone.operator_id, proto=proto),
@@ -100,7 +99,7 @@ class DroneSpoofer:
         """返回当前激活的传输协议名称。"""
         names = []
         for b in self.backends:
-            if isinstance(b, GbBackend):
+            if isinstance(b, GB42590Backend):
                 names.append("GB 42590 Wi-Fi Beacon")
             elif isinstance(b, WifiBackend):
                 names.append("ASTM Wi-Fi Beacon")
@@ -114,36 +113,17 @@ class DroneSpoofer:
 
     def _log_drone_params(self, drone: DroneState, msg_type: str = "",
                           static_name: str = "") -> None:
-        """按 Remote ID 标准消息块分类输出无人机参数，去重避免重复。"""
+        """Simplified one-line log per transmission."""
         transport = self._get_transport_names()
         lat = drone.lat / 1e7
         lng = drone.lng / 1e7
-        pilot_lat = drone.pilot_location[0] / 1e7
-        pilot_lng = drone.pilot_location[1] / 1e7
-
-        # 根据当前使用的传输类型决定显示哪些地址
-        addr_parts = []
-        if self._has_wifi:
-            addr_parts.append(f"MAC(Wi-Fi)={drone.mac_address}")
-        if self._has_ble:
-            addr_parts.append(f"BLE={drone.ble_address}")
-        addr_str = "  ".join(addr_parts) if addr_parts else "N/A"
-
-        lines = [
-            f"  [传输] {transport}  |  本次发送: {msg_type}",
-            f"  [Basic ID]     ID={drone.serial.decode():<20} UA=Helicopter/Multirotor  "
-            f"{addr_str}",
-            f"  [Location]     Lat={lat:.6f}°  Lng={lng:.6f}°  "
-            f"Alt(Geo)={drone.geodetic_altitude:.1f}m  Alt(Baro)={drone.pressure_altitude:.1f}m  "
-            f"Height={drone.height:.1f}m  Speed(H)={drone.speed:.2f}m/s  "
-            f"Speed(V)={drone.vertical_speed:.2f}m/s  Dir={drone.direction:.1f}°",
-            f"  [Self ID]      Text=\"Spoofing test\"",
-            f"  [System]       Pilot=({pilot_lat:.6f}, {pilot_lng:.6f})  "
-            f"OpAlt={drone.operator_altitude:.1f}m  "
-            f"AreaCount=0  Radius=0  Ceiling=0  Floor=0",
-            f"  [Operator ID]  ID={drone.operator_id}",
-        ]
-        logger.info("\n".join(lines))
+        logger.info(
+            f"[{transport}] {drone.serial.decode():<20} "
+            f"({lat:.6f}, {lng:.6f}) "
+            f"Alt={drone.geodetic_altitude:.1f}m Spd={drone.speed:.2f}m/s "
+            f"Dir={drone.direction:.1f}° "
+            f"OP={drone.operator_id}"
+        )
 
     def run_manual_mode(self) -> None:
         """Run controlled drone spoofing with keyboard input."""

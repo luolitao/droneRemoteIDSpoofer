@@ -28,7 +28,7 @@ except ImportError:
     sys.exit(1)
 
 
-# ── Build the exact same frame as GbBackend ────────────────────────
+# ── Build the exact same frame as GB42590Backend ────────────────────────
 
 OUI = b'\xfa\x0b\xbc'
 OUI_TYPE = 0x0D
@@ -40,7 +40,7 @@ SUPPORTED_RATES = b'\x8c'
 
 
 def build_gb_payload():
-    """Build a test TLV payload matching _build_gb_payload in gb.py."""
+    """Build a test TLV payload matching _build_gb_payload in gb42590.py."""
     buf = bytearray()
 
     def _append_tlv(tag, value):
@@ -86,7 +86,7 @@ def build_gb_payload():
 
 
 def build_beacon(seq_num: int = 0):
-    """Build a single GB beacon frame exactly as GbBackend does."""
+    """Build a single GB beacon frame exactly as GB42590Backend does."""
     gb_payload = build_gb_payload()
 
     radiotap = RadioTap()

@@ -206,22 +206,22 @@ check("decode: Height=100.0m above takeoff",
 
 section("Test 3: Self ID (MessageType=0x03)")
 
-msg = encode_self_id(b"GB Spoofer Test", proto=1, desc_type=0)
+msg = encode_self_id(b"GB Spoofer Test", proto=2, desc_type=0)
 
 check("消息长度 25 字节", len(msg) == 25, f"got {len(msg)}")
 check("MsgType = 0x3 (高4位)", msg[0] >> 4 == 0x3, f"got 0x{msg[0]>>4:X}")
-check("Proto = 1 (低4位)", msg[0] & 0x0F == 1, f"got {msg[0] & 0x0F}")
+check("Proto = 2 (低4位)", msg[0] & 0x0F == 2, f"got {msg[0] & 0x0F}")
 check("DescType = 0 (Text)", msg[1] == 0, f"got {msg[1]}")
 check("描述文本 = 'GB Spoofer Test' (前15字节)", msg[2:17] == b"GB Spoofer Test", f"got '{msg[2:17].decode()}'")
 check("第16-25字节补零", msg[17:25] == b'\x00' * 8)
 
 # 测试长文本截断 (max 23 bytes)
 long_desc = b"A" * 30
-msg2 = encode_self_id(long_desc, proto=1)
+msg2 = encode_self_id(long_desc, proto=2)
 check("长描述截断为23字节", msg2[2:25] == b'A' * 23)
 
 # 测试默认描述
-msg3 = encode_self_id(proto=1)
+msg3 = encode_self_id(proto=2)
 check("默认描述 = 'GB Spoofer'", msg3[2:12] == b"GB Spoofer")
 
 # Round-trip decode
@@ -301,11 +301,12 @@ check("decode: 包含 25.0m (operator altitude)",
 section("Test 5: Operator ID (MessageType=0x05)")
 
 op_id = "OP-12345"
-msg = encode_operator_id(operator_id=op_id, proto=1)
+msg = encode_operator_id(operator_id=op_id, proto=2)
 
 check("消息长度 25 字节", len(msg) == 25, f"got {len(msg)}")
 check("MsgType = 0x5 (高4位)", msg[0] >> 4 == 0x5, f"got 0x{msg[0]>>4:X}")
-check("Proto = 1 (低4位)", msg[0] & 0x0F == 1, f"got {msg[0] & 0x0F}")
+check("Proto = 2 (低4位)", msg[0] & 0x0F == 2, f"got {msg[0] & 0x0F}")
+check("OperatorIdType = 0 (CAA registration)", msg[1] == 0, f"got {msg[1]}")
 
 # Operator ID bytes 2-21 (20 bytes max)
 op_id_bytes = msg[2:22]
@@ -315,38 +316,40 @@ check("剩余12字节补零", op_id_bytes[8:] == b'\x00' * 12)
 
 # 测试 CAA 格式
 caa_id = "GBR-OP-1234567890"
-msg2 = encode_operator_id(operator_id=caa_id, proto=1)
+msg2 = encode_operator_id(operator_id=caa_id, proto=2)
 caa_encoded = caa_id.encode().ljust(20, b'\x00')
 check(f"CAA ID '{caa_id}' ({len(caa_id)}字节, left-justified)", msg2[2:22] == caa_encoded,
       f"got '{msg2[2:22].decode('utf-8', errors='replace')}'")
 
 # 测试超长截断
 long_id = "THIS_IS_A_VERY_LONG_OPERATOR_ID_EXCEEDING_20_BYTES"
-msg3 = encode_operator_id(operator_id=long_id, proto=1)
+msg3 = encode_operator_id(operator_id=long_id, proto=2)
 check("长ID截断为20字节", msg3[2:22] == long_id.encode()[:20],
       f"got '{msg3[2:22].decode()}'")
 
 # 测试空字符串
-msg4 = encode_operator_id(operator_id="", proto=1)
+msg4 = encode_operator_id(operator_id="", proto=2)
 check("空ID → 全零填充", msg4[2:22] == b'\x00' * 20)
 
 # 测试中文 UTF-8
 cn_id = "飞手-001"
-msg5 = encode_operator_id(operator_id=cn_id, proto=1)
+msg5 = encode_operator_id(operator_id=cn_id, proto=2)
 expected_cn = cn_id.encode('utf-8').ljust(20, b'\x00')
 check(f"中文ID '{cn_id}' (UTF-8编码)", msg5[2:22] == expected_cn,
       f"got '{msg5[2:22].decode('utf-8', errors='replace')}'")
 
-# Round-trip decode
+# Round-trip decode (decode_operator_id 现在包含 type 信息)
 decoded = decode_operator_id(msg)
-check("decode: Operator ID = 'OP-12345'", decoded.get("Operator ID") == "OP-12345",
+check("decode: Operator ID 包含 'OP-12345'", "OP-12345" in decoded.get("Operator ID", ""),
       f"got '{decoded.get('Operator ID', '')}'")
+check("decode: Operator ID 包含 type=Operator ID",
+      "type=Operator ID" in decoded.get("Operator ID", ""))
 
 decoded2 = decode_operator_id(msg2)
-check("decode: CAA ID round-trip", decoded2.get("Operator ID") == caa_id)
+check("decode: CAA ID round-trip", "GBR-OP-1234567890" in decoded2.get("Operator ID", ""))
 
 decoded5 = decode_operator_id(msg5)
-check("decode: 中文 ID round-trip", decoded5.get("Operator ID") == cn_id)
+check("decode: 中文 ID round-trip", "飞手-001" in decoded5.get("Operator ID", ""))
 
 
 # ── Test 6: GB Message Pack 完整组装 ─────────────────────────────────────
@@ -367,12 +370,14 @@ drone = DroneState(
 
 pack = build_gb_pack(drone, send_counter=42, proto=2)
 
-# 总长度：service_info(2) + pack_header(3) + 5*25 = 5 + 125 = 130
+# 总长度：VendType(1) + Counter(1) + PackHeader(3) + 5×25 = 2 + 3 + 125 = 130
 check("GB Pack 总长度 130 字节", len(pack) == 130, f"got {len(pack)}")
 
-# ODID_service_info (bytes 0-1)
-check("Counter = 42", pack[0] == 42, f"got {pack[0]}")
-check("Reserved = 0x00", pack[1] == 0x00, f"got 0x{pack[1]:02X}")
+# Vend Type (byte 0) = 0x0D
+check("VendType = 0x0D", pack[0] == 0x0D, f"got 0x{pack[0]:02X}")
+
+# Message Counter (byte 1)
+check("MessageCounter = 42", pack[1] == 42, f"got {pack[1]}")
 
 # Message Pack header (bytes 2-4)
 check("Pack MsgType = 0xF", pack[2] >> 4 == 0xF, f"got 0x{pack[2]>>4:X}")
@@ -392,7 +397,7 @@ check("Message#2: Latitude = 399267000", loc_lat == 399267000, f"got {loc_lat}")
 
 msg_self = pack[55:80]
 check("Message#3: Self ID 类型=0x3", msg_self[0] >> 4 == 0x3, f"got 0x{msg_self[0]>>4:X}")
-check("Message#3: 描述 = 'GB Spoofer'", msg_self[2:12] == b"GB Spoofer")
+check("Message#3: 描述 = 'GB42590 Drone Remote ID'", b"GB42590 Drone Remote ID" in msg_self[2:])
 
 msg_sys = pack[80:105]
 check("Message#4: System 类型=0x4", msg_sys[0] >> 4 == 0x4, f"got 0x{msg_sys[0]>>4:X}")
@@ -403,9 +408,10 @@ check("Message#4: Operator Alt = 2040 (20m)", sys_op_alt == 2040, f"got {sys_op_
 
 msg_op = pack[105:130]
 check("Message#5: Operator ID 类型=0x5", msg_op[0] >> 4 == 0x5, f"got 0x{msg_op[0]>>4:X}")
+check("Message#5: OperatorIdType = 0", msg_op[1] == 0, f"got {msg_op[1]}")
 check("Message#5: ID = 'GB-OP-PACK-01'", msg_op[2:15] == b"GB-OP-PACK-01")
 
-# Round-trip decode: Message Pack body starts after service_info(2) + pack_header(3) = offset 5
+# Round-trip decode: Message Pack body starts after VendType(1) + Counter(1) + PackHeader(3) = offset 5
 fields = decode_message_pack(pack[5:], msg_count=5)
 # decode_message_pack 展开所有子字段（Location 一条就有 11 个子字段），总字段数 > 5
 check("decode: >= 5 个字段解码成功", len(fields) >= 5, f"got {len(fields)} fields: {list(fields.keys())}")
@@ -415,7 +421,7 @@ check("decode: Self-ID 存在", "Self-ID" in fields)
 check("decode: System 存在", "System" in fields)
 check("decode: Operator ID 存在", "Operator ID" in fields)
 check("decode: Operator ID = 'GB-OP-PACK-01'",
-      fields.get("Operator ID") == "GB-OP-PACK-01",
+      "GB-OP-PACK-01" in fields.get("Operator ID", ""),
       f"got '{fields.get('Operator ID', '')}'")
 
 
@@ -426,7 +432,7 @@ section("Test 7: Counter 递增机制")
 counters = []
 for i in range(5):
     pack = build_gb_pack(drone, send_counter=i, proto=2)
-    counters.append(pack[0])
+    counters.append(pack[1])  # Message Counter is at byte 1 (after VendType)
 
 check("Counter[0] = 0", counters[0] == 0)
 check("Counter[1] = 1", counters[1] == 1)
@@ -436,7 +442,7 @@ check("Counter[4] = 4", counters[4] == 4)
 
 # Counter 溢出回绕
 pack_wrap = build_gb_pack(drone, send_counter=256, proto=2)
-check("Counter 256 → 0 (mod 256)", pack_wrap[0] == 0, f"got {pack_wrap[0]}")
+check("Counter 256 → 0 (mod 256)", pack_wrap[1] == 0, f"got {pack_wrap[1]}")
 
 
 # ── Test 8: 协议版本区分 ─────────────────────────────────────────────────
@@ -537,27 +543,42 @@ try:
     from scapy.all import RadioTap, Dot11, Dot11Beacon, Dot11Elt
 
     OUI = b'\xfa\x0b\xbc'
-    OUI_TYPE = 0x0D
-    CAPABILITY = 0x2004
-    SUPPORTED_RATES = b'\x8c'
+    VEND_TYPE = 0x0D
+    SUPPORTED_RATES = b'\x82\x84\x8b\x96'
+    EXTENDED_SUPPORTED_RATES = b'\x0c\x12\x18\x24\x30\x48\x60\x6c'
 
-    # 构造完整的 GB beacon
-    gb_payload = build_gb_pack(drone, send_counter=0, proto=2)
+    # 按照 GB42590Backend.send_messages() 的方式构造 vendor_data
+    # 格式: VendType(1) + MessageCounter(1) + PackHeader(3) + Messages
+    messages_list = [
+        encode_basic_id(drone.serial, proto=2),
+        encode_location(drone, proto=2),
+        encode_self_id(b"GB42590 Drone Remote ID", proto=2),
+        encode_system(drone.pilot_location[0], drone.pilot_location[1],
+                      proto=2, operator_altitude=drone.operator_altitude),
+        encode_operator_id(operator_id=drone.operator_id, proto=2),
+    ]
+    msg_count = len(messages_list)
+    pack_header = bytes([(MsgType.PACK << 4) | 0x02, MESSAGE_SIZE, msg_count & 0xFF])
+    vendor_data = bytes([VEND_TYPE, 0]) + pack_header + b''.join(messages_list)
+
     ssid = ("GB-" + drone.serial.decode('ascii', errors='replace'))[:32]
-    vendor_data = OUI + bytes([OUI_TYPE]) + gb_payload
 
     ie_ssid = Dot11Elt(ID='SSID', info=ssid.encode())
     ie_rates = Dot11Elt(ID='Rates', info=SUPPORTED_RATES)
-    ie_vendor = Dot11Elt(ID=221, info=vendor_data)
+    ie_dsset = Dot11Elt(ID='DSset', info=bytes([6]))
+    ie_tim = Dot11Elt(ID='TIM', info=b'\x00\x01\x00\x00')
+    ie_erp = Dot11Elt(ID='ERPinfo', info=b'\x00')
+    ie_esr = Dot11Elt(ID='ESRates', info=EXTENDED_SUPPORTED_RATES)
+    ie_vendor = Dot11Elt(ID=221, info=OUI + vendor_data)
 
     radiotap = RadioTap()
     dot11_base = Dot11(type=0, subtype=8,
                        addr1='ff:ff:ff:ff:ff:ff',
                        addr2=drone.mac_address,
                        addr3=drone.mac_address, SC=0)
-    beacon_base = Dot11Beacon(cap=CAPABILITY, beacon_interval=0x0064, timestamp=0)
+    beacon_base = Dot11Beacon(cap=0, timestamp=0)
 
-    frame = radiotap / dot11_base / beacon_base / ie_ssid / ie_rates / ie_vendor
+    frame = radiotap / dot11_base / beacon_base / ie_ssid / ie_rates / ie_dsset / ie_tim / ie_erp / ie_esr / ie_vendor
     raw = bytes(frame)
 
     check("Beacon 帧构造成功", len(raw) > 0, f"帧长度 {len(raw)}")
@@ -582,31 +603,45 @@ try:
     beacon_off = rt_len + 24
     beacon_body = raw[beacon_off:beacon_off+12]
     bi = struct.unpack('<H', beacon_body[8:10])[0]
-    check("Beacon Interval = 100 TU", bi == 100, f"got {bi}")
+    check("Beacon Interval = 100 TU (default)", bi == 100, f"got {bi}")
 
     cap_val = struct.unpack('<H', beacon_body[10:12])[0]
-    check("Capability = 0x0420 (short slot + short preamble)", cap_val == 0x0420,
-          f"got 0x{cap_val:04x}")
+    check("Capability = 0x0000 (no ESS)", cap_val == 0x0000, f"got 0x{cap_val:04X}")
 
-    # 验证 IE 221 (Vendor Specific)
+    # 验证所有标准 IEs 存在
     ie_off = beacon_off + 12
-    found_ie221 = False
+    found_ies = {}
     off = ie_off
     while off < len(raw):
         ie_id = raw[off]
         ie_len = raw[off + 1]
-        if ie_id == 221:
-            found_ie221 = True
-            oui_data = raw[off+2:off+2+ie_len]
-            check("OUI = FA:0B:BC", oui_data[:3] == b'\xfa\x0b\xbc',
-                  f"got {oui_data[:3].hex(':')}")
-            check("OUI Type = 0x0D", oui_data[3] == 0x0D, f"got 0x{oui_data[3]:02X}")
-            # 验证 GB payload 长度 = 130 字节 (service_info(2) + pack_header(3) + 5*25)
-            gb_data = oui_data[4:]
-            check("GB Payload = 130 字节", len(gb_data) == 130, f"got {len(gb_data)}")
-            break
+        found_ies[ie_id] = raw[off + 2:off + 2 + ie_len]
         off += 2 + ie_len
-    check("Vendor IE (221) 存在", found_ie221)
+
+    check("SSID IE (0) 存在", 0 in found_ies)
+    check("Rates IE (1) 存在", 1 in found_ies)
+    check("DSset IE (3) 存在", 3 in found_ies)
+    check("TIM IE (5) 存在", 5 in found_ies)
+    check("ERPinfo IE (42) 存在", 42 in found_ies)
+    check("ESRates IE (50) 存在", 50 in found_ies)
+
+    # 验证 IE 221 (Vendor Specific)
+    check("Vendor IE (221) 存在", 221 in found_ies)
+    if 221 in found_ies:
+        oui_data = found_ies[221]
+        check("OUI = FA:0B:BC", oui_data[:3] == b'\xfa\x0b\xbc',
+              f"got {oui_data[:3].hex(':')}")
+        check("VendType = 0x0D", oui_data[3] == 0x0D, f"got 0x{oui_data[3]:02X}")
+        # Message Counter
+        check("MessageCounter = 0", oui_data[4] == 0, f"got {oui_data[4]}")
+        # Message Pack: PackType|Proto, MsgSize, MsgCount
+        check("Pack MsgType = 0xF", oui_data[5] >> 4 == 0xF)
+        check("Pack Proto = 2", oui_data[5] & 0x0F == 2)
+        check("MsgSize = 25", oui_data[6] == 25, f"got {oui_data[6]}")
+        check("MsgCount = 5", oui_data[7] == 5, f"got {oui_data[7]}")
+        # 验证 messages 总长度
+        messages_data = oui_data[8:]
+        check("Messages 总长度 = 125 字节 (5×25)", len(messages_data) == 125, f"got {len(messages_data)}")
 
 except ImportError:
     print("  ⚠️  Scapy 未安装，跳过 Beacon 帧构造验证")
