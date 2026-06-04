@@ -17,7 +17,7 @@ Note that CLI flags override config values.
 - `interval` (number): seconds between transmission batches. Default: `1.0`.
 - `location` ([lat, lng]): base coordinates in decimal degrees. Default: Guangzhou.
 - `random` (int): number of random drones if `drones` is empty. Default: `1`.
-- `transport` (string): `"wifi"`, `"ble"`, or `"both"`. Default: `"wifi"`.
+- `transport` (string): `"wifi"`, `"ble"`, `"both"`, `"gb"`, `"gb46750"`, `"nan"`, or comma-separated combination. Default: `"wifi"`.
 - `ble` (object): BLE-specific settings (optional).
   - `adapter` (string): HCI adapter name. Default: `"hci0"`.
   - `advertising_interval_ms` (int): time per BLE advertisement in ms. Default: `200`.
@@ -50,6 +50,18 @@ randomly (serial, MAC, and locations).
   - Each waypoint is `[lat, lng, hold_seconds?]`.
   - `hold_seconds` defaults to `0` when omitted.
 
+### GB 46750-2025 specific drone fields
+When using `"transport": "gb46750"`, the following additional drone fields are supported:
+
+- `registration_mark` (string): UAS registration mark, up to 8 ASCII characters. Example: `"UAS12345"`.
+- `operation_category` (int): 0=Open, 1=Specific, 2=Certified. Default: `0`.
+- `ua_classification` (int): 0=Undeclared, 1=Aeroplane, 2=Helicopter, 3=Gyroplane, 4=HybridLift, 5=Ornithopter, 6=Glider, 7=Kite, 8=FreeBalloon, 9=CaptiveBalloon, 10=Airship, 11=FreeFall, 12=Rocket, 13=Tethered, 14=PoweredAircraft, 15=Other. Default: `0`.
+- `station_location_type` (int): 0=Takeoff, 1=Dynamic, 2=Fixed. Default: `1`.
+- `horizontal_accuracy` (int): NACp value (0-15). Default: `0`.
+- `vertical_accuracy` (int): GVA value (0-15). Default: `0`.
+- `speed_accuracy` (int): NACv value (0-15). Default: `0`.
+- `timestamp_accuracy` (int): Timestamp accuracy class (0-15). Default: `0`.
+
 In `random` mode the kinematic values drift each tick within plausible bounds.
 In `static` and `waypoints` modes, the seeded values stay constant.
 
@@ -81,6 +93,20 @@ radio. With 200ms per ad, ~5 drones fit in a 1-second cycle.
 
 ### `both`
 Sends on Wi-Fi and BLE simultaneously.
+
+### `gb`
+Sends GB 42590-2023 payloads inside Wi-Fi beacon frames with vendor-specific
+IE (OUI 0xFA0BBC, VendType 0x0C). SSID prefix: `GB-`. Requires Wi-Fi adapter
+in monitor mode.
+
+### `gb46750`
+Sends GB 46750-2025 packets inside Wi-Fi beacon frames with vendor-specific
+IE (OUI 0xFA0BBC, VendType 0x0E). A single packet encodes all 21 data items.
+SSID prefix: `GB46750-`. Requires Wi-Fi adapter in monitor mode.
+
+### `nan`
+Sends ASTM F3411-22 payloads via Wi-Fi NAN (Neighbor Awareness Networking) using
+NAN Sync Beacon and SDF frames. Requires nl80211 support.
 
 ## Examples
 
@@ -126,6 +152,30 @@ Waypoints (the global config is ommited):
         [23.1294, 113.2646, 2],
         [23.1296, 113.2647, 2]
       ]
+    }
+  ]
+}
+```
+
+GB 46750 with custom fields:
+```json
+{
+  "global": {
+    "interface": "wlan1",
+    "transport": "gb46750"
+  },
+  "drones": [
+    {
+      "mode": "random",
+      "serial": "SN1234567890ABCDEF",
+      "registration_mark": "UAS12345",
+      "operation_category": 0,
+      "ua_classification": 2,
+      "station_location_type": 1,
+      "horizontal_accuracy": 10,
+      "vertical_accuracy": 8,
+      "speed_accuracy": 6,
+      "timestamp_accuracy": 12
     }
   ]
 }

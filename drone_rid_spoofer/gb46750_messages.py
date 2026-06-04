@@ -8,15 +8,15 @@ Packet format (Figure 3 / Table 1):
   │ Field    │ Bytes│ Description                            │
   ├──────────┼──────┼────────────────────────────────────────┤
   │ DataType │  1   │ 255 (0xFF) — 运行识别信息数据包        │
-  │ Version  │  1   │ Bits 0-2: 001; Bits 3-7: 0-63 (V1.X)  │
+  │ Version  │  1   │ Bits 7-5: 001; Bits 4-0: 0-31 (V1.X)  │
   │ Length   │  1   │ Total data item bytes (1-200)          │
   │ Flags    │ 3+N  │ Identifier flags with extension        │
   │ Data     │ var  │ Data items per Table 3                 │
   └──────────┴──────┴────────────────────────────────────────┘
 
 Identifier flags (Table 2):
-  Each byte: bits 0-6 = item present flag (1=send), bit 7 = extension flag
-  Bit 7=0 → end of flags; Bit 7=1 → next byte is also flags
+  Each byte: bits 7-1 = item present flag (1=send), bit 0 = extension flag
+  Bit 0=0 → end of flags; Bit 0=1 → next byte is also flags
 
 Data items (Table 3, 21 items):
   001: Unique Product ID       20B ASCII
@@ -56,9 +56,9 @@ from typing import Dict, List, Optional, Tuple
 # GB 46750 data type identifier
 GB46750_DATA_TYPE = 0xFF
 
-# Version: bits 0-2 = 001, bits 3-7 = minor version
-GB46750_VERSION_BASE = 0b0010  # bits 0-3
-GB46750_VERSION_MINOR = 0     # bits 4-7: V1.0
+# Version: bits 7-5 = 001 (major), bits 4-0 = minor version
+GB46750_VERSION_BASE = 0x20   # 0b00100000, V1.X
+GB46750_VERSION_MINOR = 0     # V1.0
 
 # Item IDs (001-021)
 ITEM_UNIQUE_PRODUCT_ID = 1
@@ -214,49 +214,49 @@ def _decode_alt_gb46750(raw: int, base: float = 1000.0) -> float:
 def _encode_flags(item_ids: List[int]) -> bytes:
     """Encode identifier flags per Table 2.
 
-    Each byte: bits 0-6 map to items 1-7 in sequence (per flag byte group).
-    Bit 7 = 1 if more flag bytes follow, 0 if this is the last.
+    Each byte: bits 7-1 map to items 1-7 in sequence (per flag byte group).
+    Bit 0 = 1 if more flag bytes follow, 0 if this is the last.
 
     The 21 items are distributed across flag bytes:
-      Byte 1 (bits 0-6): items 1-7
-      Byte 2 (bits 0-6): items 8-14
-      Byte 3 (bits 0-6): items 15-21
+      Byte 1 (bits 7-1): items 1-7
+      Byte 2 (bits 7-1): items 8-14
+      Byte 3 (bits 7-1): items 15-21
     """
     flags = []
     for group_start in (1, 8, 15):
         byte_val = 0
-        has_any = False
         for bit_idx in range(7):
             item_id = group_start + bit_idx
             if item_id in item_ids:
-                byte_val |= (1 << bit_idx)
-                has_any = True
-        if has_any or group_start <= 15:  # always include at least the mandatory groups
-            flags.append(byte_val)
+                byte_val |= (0x80 >> bit_idx)  # bit7 → item1, bit1 → item7
+        flags.append(byte_val)
 
-    # Set extension bits: all but last have bit 7 = 1
+    # Set extension bits: all but last have bit 0 = 1
     result = bytearray()
     for i, f in enumerate(flags):
         if i < len(flags) - 1:
-            result.append(f | 0x80)
+            result.append(f | 0x01)
         else:
-            result.append(f & 0x7F)
+            result.append(f & 0xFE)
     return bytes(result)
 
 
 def _decode_flags(data: bytes, offset: int = 0) -> Tuple[List[int], int]:
-    """Decode identifier flags, return (list of item IDs, new offset)."""
+    """Decode identifier flags, return (list of item IDs, new offset).
+
+    Each byte: bits 7-1 = item present, bit 0 = has more bytes.
+    """
     item_ids = []
     group_start = 1
     while offset < len(data):
         byte_val = data[offset]
         offset += 1
         for bit_idx in range(7):
-            if byte_val & (1 << bit_idx):
+            if byte_val & (0x80 >> bit_idx):  # bit7 → item1, bit1 → item7
                 item_id = group_start + bit_idx
                 if item_id <= 21:
                     item_ids.append(item_id)
-        if not (byte_val & 0x80):  # bit 7 = 0 → end
+        if not (byte_val & 0x01):  # bit 0 = 0 → end
             break
         group_start += 7
     return item_ids, offset
@@ -501,8 +501,8 @@ def build_gb46750_packet(
     # Build flags
     flags = _encode_flags(item_ids)
 
-    # Build version byte: bits 0-2 = 001, bits 3-7 = minor version
-    version_byte = (GB46750_VERSION_BASE << 4) | (GB46750_VERSION_MINOR )
+    # Build version byte: bits 7-5 = 001 (major), bits 4-0 = minor version
+    version_byte = GB46750_VERSION_BASE | (GB46750_VERSION_MINOR & 0x1F)
 
     # Assemble full packet
     packet = bytearray()
@@ -525,7 +525,7 @@ def decode_gb46750_packet(packet: bytes) -> Optional[Dict]:
 
     version_byte = packet[1]
     version_major = 1
-    version_minor = (version_byte >> 3) & 0x1F
+    version_minor = version_byte & 0x1F
     version = f"V{version_major}.{version_minor}"
 
     data_length = packet[2]

@@ -55,7 +55,7 @@ class GB42590Backend(TransportBackend):
     OUI = b'\xfa\x0b\xbc'       # OUI/CID 固定取值 0xFA0BBC
     VEND_TYPE = 0x0D            # Vend Type 固定取值 0x0D
     DEST_ADDR = 'ff:ff:ff:ff:ff:ff'
-    SSID_PREFIX = 'GB42950-'
+    SSID_PREFIX = 'GB42590-'
     SSID_MAX_LEN = 32
     SUPPORTED_RATES = b'\x82\x84\x8b\x96'
     EXTENDED_SUPPORTED_RATES = b'\x0c\x12\x18\x24\x30\x48\x60\x6c'

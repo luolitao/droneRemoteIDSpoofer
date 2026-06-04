@@ -302,6 +302,15 @@ class DroneSpoofer:
             else:
                 anchor_lat, anchor_lng = base_lat, base_lng
 
+            # GB 46750-2025 specific fields
+            gb46750_fields = {}
+            for field in ("registration_mark", "operation_category",
+                          "ua_classification", "station_location_type",
+                          "horizontal_accuracy", "vertical_accuracy",
+                          "speed_accuracy", "timestamp_accuracy"):
+                if field in entry:
+                    gb46750_fields[field] = entry[field]
+
             drone = DroneState(
                 serial=serial_bytes,
                 pilot_location=pilot_loc,
@@ -318,6 +327,7 @@ class DroneSpoofer:
                 operator_altitude=operator_altitude,
                 anchor_lat=anchor_lat,
                 anchor_lng=anchor_lng,
+                **gb46750_fields,
             )
             self._seed_kinematics(drone, overrides=self._extract_kinematic_overrides(entry))
             drones.append(drone)

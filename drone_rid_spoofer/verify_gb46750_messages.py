@@ -136,10 +136,10 @@ decoded_all, _ = _decode_flags(flags_all, 0)
 check("解码回全部 21 items", set(decoded_all) == (MANDATORY_ITEMS | OPTIONAL_ITEMS),
       f"expected 21, got {len(decoded_all)}")
 
-# Extension bits
-check("第1字节 bit7=1 (有扩展)", (flags_all[0] & 0x80) != 0)
-check("第2字节 bit7=1 (有扩展)", (flags_all[1] & 0x80) != 0)
-check("第3字节 bit7=0 (无扩展)", (flags_all[2] & 0x80) == 0)
+# Extension bits (bit 0 = 1 means more bytes follow)
+check("第1字节 bit0=1 (有扩展)", (flags_all[0] & 0x01) != 0)
+check("第2字节 bit0=1 (有扩展)", (flags_all[1] & 0x01) != 0)
+check("第3字节 bit0=0 (无扩展)", (flags_all[2] & 0x01) == 0)
 
 
 # ── Test 2: Altitude encoding ────────────────────────────────────────────
@@ -382,8 +382,8 @@ check("包非空", len(packet) > 0, f"总长度 {len(packet)}")
 # Header: DataType(1) + Version(1) + Length(1)
 check("DataType = 0xFF", packet[0] == 0xFF)
 version = packet[1]
-check("Version bits 0-2 = 001", (version & 0x07) == 0x01, f"got {version & 0x07}")
-check("Version V1.0", version == 0x01, f"got 0x{version:02X}")
+check("Version bits 7-5 = 001", (version & 0xE0) == 0x20, f"got 0x{version:02X}")
+check("Version V1.0 = 0x20", version == 0x20, f"got 0x{version:02X}")
 
 data_len = packet[2]
 check("DataLength > 0", data_len > 0, f"got {data_len}")

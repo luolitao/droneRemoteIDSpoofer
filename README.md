@@ -1,6 +1,6 @@
 # Drone Remote ID Spoofer
 
-一个用于伪造无人机远程识别（Remote ID）数据包的工具，同时兼容 **ASTM F3411-19/22** 及中国 **GB 42590-2023** 标准，支持 Wi-Fi Beacon（ASTM/GB）、Wi-Fi NAN 和 BLE 四种传输方式。
+一个用于伪造无人机远程识别（Remote ID）数据包的工具，同时兼容 **ASTM F3411-19/22**、中国 **GB 42590-2023** 及 **GB 46750-2025** 标准，支持 Wi-Fi Beacon（ASTM/GB 42590/GB 46750）、Wi-Fi NAN 和 BLE 五种传输方式。
 
 面向**安全研究人员**、**无人机检测系统开发者**以及任何研究 Remote ID 协议健壮性的人员。Remote ID 协议本身不提供认证或加密完整性，使其在不受控环境中天然容易受到消息注入或身份仿冒攻击。
 
@@ -10,14 +10,15 @@
 
 ## 特性
 
-- **多标准支持** — 同时支持 ASTM F3411-19/22 和中国 GB 42590-2023 标准
-- **多传输方式** — Wi-Fi Beacon（ASTM / GB 42590）、Wi-Fi NAN、BLE 广播，可单独或组合使用
+- **多标准支持** — 同时支持 ASTM F3411-19/22、中国 GB 42590-2023 及 GB 46750-2025 标准
+- **多传输方式** — Wi-Fi Beacon（ASTM / GB 42590 / GB 46750）、Wi-Fi NAN、BLE 广播，可单独或组合使用
 - **多无人机** — 同时伪造多架无人机，每架具有独立的序列号、MAC 地址和飞行行为
 - **三种飞行模式** — 随机游走（物理模型驱动）、静态悬停、预定义航点路径
-- **场景配置** — 通过 JSON 定义多无人机场景（16 个开箱即用的预设场景）
+- **场景配置** — 通过 JSON 定义多无人机场景（19 个开箱即用的预设场景）
 - **手动控制** — 使用 WASD 键盘实时控制伪造无人机位置
-- **GB 42590 合规发送** — 动态报文（Location）每秒更新，静态报文（Basic ID / Self ID / System / Operator ID）逐条轮转发送
-- **结构化日志** — 按 ASTM F3411 消息块分组输出（Basic ID / Location / Self ID / System / Operator ID）
+- **GB 42590 / GB 46750 合规发送** — 动态报文（Location）每秒更新，静态报文逐条轮转发送
+- **结构化日志** — 按消息块分组输出（Basic ID / Location / Self ID / System / Operator ID / GB 46750 21 项数据）
+- **GB 46750-2025 全覆盖** — 完整实现 Section 5.2 数据包格式，21 个数据项编解码，与 ESP32 参考实现字节级一致
 
 ---
 
@@ -66,6 +67,12 @@ sudo .venv/bin/python3 spoof_drones.py -i <interface-name>
 sudo .venv/bin/python3 spoof_drones.py -i <interface-name> -t gb
 ```
 
+**GB 46750 Wi-Fi Beacon**（中国国标 2025）：
+
+```bash
+sudo .venv/bin/python3 spoof_drones.py -i <interface-name> -t gb46750
+```
+
 **BLE** — 确保蓝牙适配器已启用：
 
 ```bash
@@ -110,6 +117,19 @@ sudo python3 spoof_drones.py -i wlan1 -r 5
 sudo python3 spoof_drones.py -c scenarios/gb_swarm.json
 ```
 
+### GB 46750-2025 国标
+
+```bash
+# 单架无人机
+sudo python3 spoof_drones.py -c scenarios/gb46750_single.json
+
+# 完整格式测试（6 架覆盖全部 21 项数据）
+sudo python3 spoof_drones.py -c scenarios/gb46750_full_test.json
+
+# 蜂群（5 架）
+sudo python3 spoof_drones.py -c scenarios/gb46750_swarm.json
+```
+
 ### 手动键盘控制
 
 ```bash
@@ -150,7 +170,7 @@ sudo python3 spoof_drones.py -c scenarios/airport_incursion.json
 | `-l` | `--location` | `lat lng` | 配置或广州越秀山 | 基准坐标（十进制度数） |
 | `-c` | `--config` | `path` | — | 场景配置 JSON 文件路径 |
 | `-v` | `--verbose` | flag | — | 启用 DEBUG 级别详细日志 |
-| `-t` | `--transport` | `str` | 配置或 `wifi` | 传输后端：`wifi`、`ble`、`nan`、`gb`、`both`(wifi+ble)，或逗号分隔组合如 `nan,ble` |
+| `-t` | `--transport` | `str` | 配置或 `wifi` | 传输后端：`wifi`、`ble`、`nan`、`gb`、`gb46750`、`both`(wifi+ble)，或逗号分隔组合如 `nan,ble` |
 | | `--ble-adapter` | `str` | 配置或 `hci0` | BLE HCI 适配器名称 |
 | | `--wifi-ess` | flag | 配置或 false | 设置 ESS 能力位（使信标看起来像 AP） |
 | | `--wifi-channel` | `int` | 配置或 `6` | Wi-Fi 广播信道 |
@@ -162,18 +182,19 @@ sudo python3 spoof_drones.py -c scenarios/airport_incursion.json
 
 ## 传输后端对比
 
-| 特性 | Wi-Fi (ASTM) | GB 42590 | Wi-Fi NAN | BLE |
-|------|-------------|----------|-----------|-----|
-| **标准** | ASTM F3411-19 | GB 42590-2023 | ASTM F3411-22 §A.3 | ASTM F3411-22 |
-| **帧类型** | 802.11 Beacon | 802.11 Beacon | NAN Sync Beacon + SDF | ADV_NONCONN_IND |
-| **OUI** | `0xFA0BBC` | `0xFA0BBC` | `0x506F9A` | N/A (UUID `0xFFFA`) |
-| **协议版本** | v2 | v1 | v2 | v2 |
-| **SSID** | `RID-<serial>` | `GB-<serial>` | N/A | N/A |
-| **消息打包** | 全部消息打包到单个 IE 221 | counter + Message Pack | Message Pack | 每条广播 1 条消息 |
-| **发送策略** | 动态 + 1 条轮转静态 | 动态 + 1 条轮转静态 | 动态 + 1 条轮转静态 | 3× Location + 1× 轮转静态 |
-| **注入方式** | Scapy `sendp()` | Scapy `sendp()` (monitor) | nl80211 / `iw mgmt send` | 原始 HCI socket |
+| 特性 | Wi-Fi (ASTM) | GB 42590 | GB 46750 | Wi-Fi NAN | BLE |
+|------|-------------|----------|----------|-----------|-----|
+| **标准** | ASTM F3411-19 | GB 42590-2023 | GB 46750-2025 | ASTM F3411-22 §A.3 | ASTM F3411-22 |
+| **帧类型** | 802.11 Beacon | 802.11 Beacon | 802.11 Beacon | NAN Sync Beacon + SDF | ADV_NONCONN_IND |
+| **OUI** | `0xFA0BBC` | `0xFA0BBC` | `0xFA0BBC` | `0x506F9A` | N/A (UUID `0xFFFA`) |
+| **协议版本** | v2 | v1 | v1 | v2 | v2 |
+| **SSID** | `RID-<serial>` | `GB-<serial>` | `GB46750-<serial>` | N/A | N/A |
+| **消息打包** | 全部消息打包到单个 IE 221 | counter + Message Pack | 21 项单包 + IE 221 | Message Pack | 每条广播 1 条消息 |
+| **数据项数量** | 5 类消息 | 5 类消息 | 21 个数据项 | 5 类消息 | 5 类消息 |
+| **发送策略** | 动态 + 1 条轮转静态 | 动态 + 1 条轮转静态 | 完整包每间隔发送 | 动态 + 1 条轮转静态 | 3× Location + 1× 轮转静态 |
+| **注入方式** | Scapy `sendp()` | Scapy `sendp()` (monitor) | Scapy `sendp()` (monitor) | nl80211 / `iw mgmt send` | 原始 HCI socket |
 
-> **GB 42590 发送间隔**：动态报文（Location）每秒 1 次；静态报文（Basic ID / Self ID / System / Operator ID）逐条轮转，每条每 4 秒更新一次。
+> **GB 42590 / GB 46750 发送间隔**：动态报文（Location）每秒 1 次；静态报文逐条轮转发送。GB 46750 使用单一数据包包含全部 21 项数据。
 
 ---
 
@@ -183,28 +204,28 @@ sudo python3 spoof_drones.py -c scenarios/airport_incursion.json
 场景 JSON / CLI 参数
         |
         v
-  +-----------+       +------------------+
-  |  Spoofer  | ----> | encode_basic_id  |  25-byte ASTM 消息负载
-  |  Loop     |       | encode_location  |  （所有传输方式通用）
-  |           |       | encode_self_id   |
+  +-----------+       +------------------+       +---------------------+
+  |  Spoofer  | ----> | encode_basic_id  |       | build_gb46750_packet |
+  |  Loop     |       | encode_location  |       | (21 数据项单包)       |
+  |           |       | encode_self_id   |       +---------------------+
   |           |       | encode_system    |
   |           |       | encode_operator  |
   +-----------+       +------------------+
         |
         v
-  +-----+------+------+------+
-  |            |             |
-  v            v             v
-Wi-Fi        GB 42590      BLE          NAN
-Backend      Backend       Backend      Backend
-  |            |             |            |
-  v            v             v            v
-802.11       802.11        HCI raw      NAN SDF
-Beacon       Beacon        ADV_NONCONN  (Public Action)
-(scapy)      (scapy)       (socket)     (nl80211)
+  +-----+------+------+------+------+
+  |            |             |       |
+  v            v             v       v
+Wi-Fi        GB 42590   GB 46750    BLE          NAN
+Backend      Backend    Backend     Backend      Backend
+  |            |          |           |            |
+  v            v          v           v            v
+802.11       802.11     802.11      HCI raw      NAN SDF
+Beacon       Beacon     Beacon      ADV_NONCONN  (Public Action)
+(scapy)      (scapy)    (scapy)     (socket)     (nl80211)
 ```
 
-每个发送周期，Spoofer 为每架无人机构建 Location（动态）报文和 1 条轮转静态报文（Basic ID / Self ID / System / Operator ID 之一），交给所有激活的传输后端。各后端将相同的消息负载封装到各自的帧格式中并发送。
+每个发送周期，Spoofer 为每架无人机构建 ASTM 消息负载（Wi-Fi/BLE/NAN 使用）或 GB 46750 完整数据包（21 项数据），交给所有激活的传输后端。各后端将消息负载封装到各自的帧格式中并发送。
 
 详细架构说明见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
@@ -237,9 +258,12 @@ Beacon       Beacon        ADV_NONCONN  (Public Action)
 | `ble_swarm.json` | BLE | 5 | BLE 蜂群 |
 | `ble_stress_test.json` | BLE | 20 | BLE 压力测试 |
 | `dual_transport.json` | Wi-Fi + BLE | 1 | 双传输同时发送 |
-| `gb_single.json` | GB 42590 | 1 | 单架 GB 国标 |
-| `gb_swarm.json` | GB 42590 | 5 | GB 蜂群 |
-| `gb_full_test.json` | GB 42590 | 6 | GB 完整格式测试 |
+| `gb_single.json` | GB 42590 | 1 | 单架 GB 42590 |
+| `gb_swarm.json` | GB 42590 | 5 | GB 42590 蜂群 |
+| `gb_full_test.json` | GB 42590 | 6 | GB 42590 完整格式测试 |
+| `gb46750_single.json` | GB 46750 | 1 | 单架 GB 46750 |
+| `gb46750_swarm.json` | GB 46750 | 5 | GB 46750 蜂群 |
+| `gb46750_full_test.json` | GB 46750 | 6 | GB 46750 完整格式测试（21 项全覆盖） |
 | `nan_single.json` | Wi-Fi NAN | 1 | 单架 NAN |
 | `nan_swarm.json` | Wi-Fi NAN | 5 | NAN 蜂群 |
 | `nan_ble_dual.json` | NAN + BLE | 1 | NAN + BLE 双传输 |
@@ -255,6 +279,9 @@ Beacon       Beacon        ADV_NONCONN  (Public Action)
 ```bash
 # 验证 GB 42590 消息编码（161+ 项测试）
 python3 verify_gb_messages.py
+
+# 验证 GB 46750-2025 消息编码（130 项测试）
+python3 verify_gb46750_messages.py
 
 # 验证 NAN 帧格式
 python3 verify_nan.py
@@ -277,6 +304,7 @@ python3 resources/check_injection.py -i <interface>
 - [OpenDroneID](https://github.com/opendroneid) — 开源 Remote ID 实现及 Android 接收器应用
 - [ASTM F3411-22a](https://www.astm.org/f3411-22a.html) — 本工具实现的 Remote ID 标准
 - [GB 42590-2023](https://openstd.samr.gov.cn/) — 中国民用无人驾驶航空器系统安全要求
+- [GB 46750-2025](https://openstd.samr.gov.cn/) — 中国民用无人驾驶航空器系统远程识别
 
 ---
 
