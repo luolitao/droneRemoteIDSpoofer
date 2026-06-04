@@ -1,9 +1,12 @@
 {
-  "_description": "GB 46750-2025 完整消息格式测试场景 — 覆盖全部 21 个数据项及边界值",
+  "_description": "GB 46750-2025 \u5b8c\u6574\u6d88\u606f\u683c\u5f0f\u6d4b\u8bd5\u573a\u666f \u2014 \u8986\u76d6\u5168\u90e8 21 \u4e2a\u6570\u636e\u9879\u53ca\u8fb9\u754c\u503c",
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1403, 113.2725],
+    "location": [
+      23.1403,
+      113.2725
+    ],
     "transport": "gb46750",
     "gb46750": {
       "channel": 6,
@@ -12,12 +15,18 @@
   },
   "drones": [
     {
-      "_description": "无人机1: static模式 — 开放类+轻型+遥控站位置",
+      "_description": "\u65e0\u4eba\u673a1: static\u6a21\u5f0f \u2014 \u5f00\u653e\u7c7b+\u8f7b\u578b+\u9065\u63a7\u7ad9\u4f4d\u7f6e",
       "mode": "static",
       "serial": "UAS2024SIMTEST000001",
       "mac": "02:00:00:00:00:01",
-      "start_location": [23.1405, 113.2727],
-      "pilot_location": [23.1401, 113.2723],
+      "start_location": [
+        23.1405,
+        113.2727
+      ],
+      "pilot_location": [
+        23.1401,
+        113.2723
+      ],
       "operator_id": "GB47-OP-FULL-01",
       "operator_altitude": 25.0,
       "speed": 8.0,
@@ -35,12 +44,18 @@
       "timestamp_accuracy": 6
     },
     {
-      "_description": "无人机2: random模式 — 特定类+小型+起飞点位置",
+      "_description": "\u65e0\u4eba\u673a2: random\u6a21\u5f0f \u2014 \u7279\u5b9a\u7c7b+\u5c0f\u578b+\u8d77\u98de\u70b9\u4f4d\u7f6e",
       "mode": "random",
-      "serial": "GB47_FULL_MSG_02",
+      "serial": "UAS2024SIMTEST000002",
       "mac": "02:00:00:00:00:02",
-      "start_location": [23.1401, 113.2728],
-      "pilot_location": [23.1404, 113.2724],
+      "start_location": [
+        23.1401,
+        113.2728
+      ],
+      "pilot_location": [
+        23.1404,
+        113.2724
+      ],
       "operator_id": "GB47-OP-FULL-02",
       "operator_altitude": 30.0,
       "speed": 15.0,
@@ -58,12 +73,18 @@
       "timestamp_accuracy": 8
     },
     {
-      "_description": "无人机3: static模式 — 审定类+中型+全零精度(未知)",
+      "_description": "\u65e0\u4eba\u673a3: static\u6a21\u5f0f \u2014 \u5ba1\u5b9a\u7c7b+\u4e2d\u578b+\u5168\u96f6\u7cbe\u5ea6(\u672a\u77e5)",
       "mode": "static",
       "serial": "GB47_FULL_MSG_03",
       "mac": "02:00:00:00:00:03",
-      "start_location": [23.1406, 113.2723],
-      "pilot_location": [23.1402, 113.2726],
+      "start_location": [
+        23.1406,
+        113.2723
+      ],
+      "pilot_location": [
+        23.1402,
+        113.2726
+      ],
       "operator_id": "GB47-OP-FULL-03",
       "operator_altitude": 0.0,
       "speed": 0.0,
@@ -81,18 +102,36 @@
       "timestamp_accuracy": 0
     },
     {
-      "_description": "无人机4: waypoints模式 — 微型+长实名登记标志截断(>8字节)",
+      "_description": "\u65e0\u4eba\u673a4: waypoints\u6a21\u5f0f \u2014 \u5fae\u578b+\u957f\u5b9e\u540d\u767b\u8bb0\u6807\u5fd7\u622a\u65ad(>8\u5b57\u8282)",
       "mode": "waypoints",
       "serial": "GB47_FULL_MSG_04",
       "mac": "02:00:00:00:00:04",
-      "start_location": [23.1403, 113.2725],
-      "pilot_location": [23.1400, 113.2722],
+      "start_location": [
+        23.1403,
+        113.2725
+      ],
+      "pilot_location": [
+        23.14,
+        113.2722
+      ],
       "operator_id": "GB47-OP-FULL-04",
       "operator_altitude": 15.0,
       "waypoints": [
-        [23.1403, 113.2725, 3],
-        [23.1408, 113.2728, 3],
-        [23.1410, 113.2730, 3]
+        [
+          23.1403,
+          113.2725,
+          3
+        ],
+        [
+          23.1408,
+          113.2728,
+          3
+        ],
+        [
+          23.141,
+          113.273,
+          3
+        ]
       ],
       "speed": 20.0,
       "vertical_speed": 3.0,
@@ -109,12 +148,18 @@
       "timestamp_accuracy": 2
     },
     {
-      "_description": "无人机5: random模式 — 空实名登记标志+零高度零速度",
+      "_description": "\u65e0\u4eba\u673a5: random\u6a21\u5f0f \u2014 \u7a7a\u5b9e\u540d\u767b\u8bb0\u6807\u5fd7+\u96f6\u9ad8\u5ea6\u96f6\u901f\u5ea6",
       "mode": "random",
       "serial": "GB47_FULL_MSG_05",
       "mac": "02:00:00:00:00:05",
-      "start_location": [23.1405, 113.2725],
-      "pilot_location": [23.1402, 113.2724],
+      "start_location": [
+        23.1405,
+        113.2725
+      ],
+      "pilot_location": [
+        23.1402,
+        113.2724
+      ],
       "operator_id": "",
       "operator_altitude": 0.0,
       "speed": 0.0,
@@ -132,13 +177,19 @@
       "timestamp_accuracy": 0
     },
     {
-      "_description": "无人机6: static模式 — 中文Operator ID + 负高度(低于海平面)",
+      "_description": "\u65e0\u4eba\u673a6: static\u6a21\u5f0f \u2014 \u4e2d\u6587Operator ID + \u8d1f\u9ad8\u5ea6(\u4f4e\u4e8e\u6d77\u5e73\u9762)",
       "mode": "static",
       "serial": "GB47_FULL_MSG_06",
       "mac": "02:00:00:00:00:06",
-      "start_location": [23.1406, 113.2730],
-      "pilot_location": [23.1403, 113.2728],
-      "operator_id": "飞手-TEST-编号-006",
+      "start_location": [
+        23.1406,
+        113.273
+      ],
+      "pilot_location": [
+        23.1403,
+        113.2728
+      ],
+      "operator_id": "\u98de\u624b-TEST-\u7f16\u53f7-006",
       "operator_altitude": -10.0,
       "speed": 25.0,
       "vertical_speed": 5.0,

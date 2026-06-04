@@ -2,7 +2,10 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1403, 113.2725],
+    "location": [
+      23.1403,
+      113.2725
+    ],
     "transport": "gb46750",
     "gb46750": {
       "channel": 6,
@@ -14,8 +17,14 @@
       "mode": "random",
       "serial": "UAS2024SIMTEST000001",
       "mac": "02:00:00:00:00:02",
-      "start_location": [23.1405, 113.2727],
-      "pilot_location": [23.1401, 113.2723],
+      "start_location": [
+        23.1405,
+        113.2727
+      ],
+      "pilot_location": [
+        23.1401,
+        113.2723
+      ],
       "operator_id": "GB47-OP-TEST-0001",
       "operator_altitude": 25.0,
       "speed": 8.0,

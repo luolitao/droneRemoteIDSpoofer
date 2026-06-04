@@ -2,7 +2,10 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1291, 113.2644],
+    "location": [
+      23.1291,
+      113.2644
+    ],
     "random": 1,
     "transport": "wifi",
     "ble": {
@@ -27,8 +30,14 @@
       "mode": "random",
       "serial": "Spoofed_Serial_00001",
       "mac": "aa:bb:cc:dd:ee:ff",
-      "start_location": [23.1292, 113.2645],
-      "pilot_location": [23.1290, 113.2643],
+      "start_location": [
+        23.1292,
+        113.2645
+      ],
+      "pilot_location": [
+        23.129,
+        113.2643
+      ],
       "operator_id": "OP-12345",
       "operator_altitude": 25.0,
       "lifespan_seconds": 30,
@@ -43,9 +52,21 @@
       "mode": "waypoints",
       "transport": "ble",
       "waypoints": [
-        [23.1292, 113.2645, 2],
-        [23.1294, 113.2646, 2],
-        [23.1296, 113.2647, 2]
+        [
+          23.1292,
+          113.2645,
+          2
+        ],
+        [
+          23.1294,
+          113.2646,
+          2
+        ],
+        [
+          23.1296,
+          113.2647,
+          2
+        ]
       ]
     },
     {
