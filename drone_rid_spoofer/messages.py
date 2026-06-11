@@ -347,7 +347,7 @@ def build_message_pack(messages: List[bytes], proto: int = 2) -> bytes:
 
 
 def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 2) -> bytes:
-    """Build GB 42590 vendor IE data per Appendix A1 Table A.1.
+    """Build GB 42590 + IB-TM-2024-01 vendor IE data per Appendix A1 Table A.1.
 
     Layout:
       Vend Type(1) | Message Counter(1) | Message Pack(3 + N×25)

@@ -27,7 +27,7 @@
       ],
       "operator_id": "GB47-OP-TEST-0001",
       "operator_altitude": 25.0,
-      "speed": 8.0,
+      "speed": 1.0,
       "vertical_speed": 0.5,
       "geodetic_altitude": 120.0,
       "pressure_altitude": 118.0,
