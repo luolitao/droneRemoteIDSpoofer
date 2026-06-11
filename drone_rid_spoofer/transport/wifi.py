@@ -1,42 +1,44 @@
-import threading
-import time
-from typing import List
-from scapy.all import Dot11, Dot11Beacon, Dot11Elt, RadioTap, sendp
-from drone_rid_spoofer.state import DroneState
-from drone_rid_spoofer.protocols.base import BaseProtocolPacker
-from drone_rid_spoofer.core import encoders
+from scapy.all import RadioTap, Dot11, Dot11Beacon, Dot11Elt, sendp, get_if_hwaddr
 
 class WifiTransport:
-    """通用的 Wi-Fi 信标注入传输层"""
-    
-    def __init__(self, interface: str, packer: BaseProtocolPacker, oui: bytes = b'\xfa\x0b\xbc'):
+    def __init__(self, interface="wlan0", ssid="Drone_Live"):
         self.interface = interface
-        self.packer = packer  # 注入对应的协议打包策略（ASTM 或 GB42590）
-        self.oui = oui        # OpenDroneID 厂商组织标识
-        self.is_running = False
-        self._thread = None
+        self.ssid_element = Dot11Elt(ID=0, info=ssid.encode('utf-8'))
+        self.send_counter = 0
+        
+        # 💡 核心修复：动态获取当前网卡真实的硬件物理 MAC 地址
+        try:
+            self.real_mac = get_if_hwaddr(interface)
+            # 容错处理：如果网卡未完全就绪抓出全 0，则指定一个合法的标准本地单播 MAC
+            if not self.real_mac or self.real_mac == "00:00:00:00:00:00":
+                self.real_mac = "74:ee:9a:bc:de:11"
+        except Exception:
+            self.real_mac = "74:ee:9a:bc:de:11"
+            
+        print(f"📡 [网卡物理层对齐] 已成功读取 {interface} 的真实 MAC 地址: {self.real_mac}")
 
-    def _transmit_loop(self, drone: DroneState):
-        while self.is_running:
-            # 1. 调用底层 core 生成 25 字节单条弹药
-            sub_msgs = [
-                encoders.encode_basic_id(drone.serial),
-                encoders.encode_location(drone)
-            ]
-            
-            # 2. 多态调用：packer 会自动根据自己的策略打包（这就是解耦的精髓）
-            vendor_data = self.packer.pack(sub_msgs)
-            
-            # 3. 塞进 Scapy 的 221 号 Vendor IE 元素发波
-            ie_vendor = Dot11Elt(ID=221, info=self.oui + vendor_data)
-            
-            # 组装物理层基础 Beacon 帧（此处简化了 SSID 和 Rates 拼接逻辑）
-            packet = RadioTap() / Dot11(type=0, subtype=8) / Dot11Beacon() / ie_vendor
-            sendp(packet, iface=self.interface, verbose=False)
-            
-            time.sleep(0.1) # 约 100ms 发送一次
-
-    def start(self, drone: DroneState):
-        self.is_running = True
-        self._thread = threading.Thread(target=self._transmit_loop, args=(drone,))
-        self._thread.start()
+    def send_gb42590_packet(self, message_pack_bytes):
+        # 1. 计算 1 字节自增消息计数器
+        counter_byte = bytes([self.send_counter])
+        self.send_counter = (self.send_counter + 1) & 0xFF
+        
+        # 2. 严格拼装符合标准 IE 221 的净载荷
+        payload_data = b"\xfa\x0b\xbc" + b"\x0d" + counter_byte + message_pack_bytes
+        actual_len = len(payload_data)
+        
+        # 3. 手动注入 Element ID 221 和精准的 Len 长度
+        custom_ie_bytes = bytes([221, actual_len]) + payload_data
+        
+        # 4. 构建链路物理层骨架
+        # 💡 严格按事实对齐：将 addr2 和 addr3 替换为真实的网卡物理 MAC
+        dot11_layer = Dot11(
+            addr1="ff:ff:ff:ff:ff:ff",      # 接收端：广播
+            addr2=self.real_mac,            # 发射端 (TA)：真实网卡 MAC
+            addr3=self.real_mac,            # BSSID：真实网卡 MAC
+            type=0, 
+            subtype=8
+        )
+        packet = RadioTap() / dot11_layer / Dot11Beacon(cap="ESS") / self.ssid_element / custom_ie_bytes
+        
+        # 5. 网卡原生产生广播
+        sendp(packet, iface=self.interface, verbose=False)

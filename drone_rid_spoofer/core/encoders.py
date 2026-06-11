@@ -15,7 +15,7 @@ class MsgType(IntEnum):
     PACK = 0xF
 
 def _clamp_alt(val_m: float) -> int:
-    return max(0, min(0xFFFF, int(round((val_m + 1000.0) / 0.5))))
+    return max(0, min(0xFFFF, int(round((val_m + 100.0) / 0.5))))
 
 def _clamp_timestamp() -> int:
     now = datetime.now()
@@ -63,6 +63,77 @@ def encode_location(drone: DroneState, proto: int = 2, status: int = 2, height_t
     struct.pack_into("<H", msg, 17, _clamp_alt(drone.height))
     struct.pack_into("<H", msg, 21, _clamp_timestamp())
     return bytes(msg)
+
+
+def encode_gb_location(drone) -> bytes:
+    """
+    根据 GB 42590 表 4 规范严格封装位置向量报文 (包含高度缩放与时间戳)
+    """
+    msg_header = b'\x01' # 国标位置向量报头
+
+    # === 字节 1: 运行状态与标志位 ===
+    operational_status = 2 << 4  # 7-4位：运行状态 (2=InFlight)
+    alt_type = 1 << 2            # 2位：高度类型 (1=几何高度)
+    
+    heading = int(getattr(drone, 'direction', 0)) % 360
+    ew_flag = 0
+    if heading >= 180:
+        ew_flag = 1 << 1
+        heading_val = heading - 180
+    else:
+        heading_val = heading
+    speed_multiplier = 0
+    byte_1 = operational_status | alt_type | ew_flag | speed_multiplier
+
+    # === 字节 2-4: 航迹角、地速、垂直速度 ===
+    # 航迹角按照国标转换为 0-179 的编码
+    byte_2_heading = heading_val & 0xFF
+    
+    # 地速：国标和ASTM一致，以 0.25 m/s 为单位缩放（若超出则用速度乘数，这里简单乘以 4）
+    speed_val = int(getattr(drone, 'speed', 0) / 0.25) & 0xFF
+    
+    # 垂直速度：以 0.5 m/s 为单位缩放
+    v_speed_val = int(getattr(drone, 'vertical_speed', 0) / 0.5) & 0xFF
+
+    # === 字节 5-12: 纬度、经度 (小端序 4 字节 int32) ===
+    lat_val = int(getattr(drone, 'lat', 0))
+    lng_val = int(getattr(drone, 'lng', 0))
+
+    # === 字节 13-18: 高度编码 【核心修正：国标高度缩放公式】 ===
+    # 编码值 = (实际高度以米为单位 + 1000) / 0.5
+    def calc_gb_alt(alt_meters):
+        val = int((float(alt_meters) + 1000.0) / 0.5)
+        return max(0, min(val, 0xFFFF))
+
+    press_alt = calc_gb_alt(getattr(drone, 'pressure_altitude', 150.0))
+    geo_alt = calc_gb_alt(getattr(drone, 'geodetic_altitude', 150.0))
+    
+    # 距地高度 (Height) 编码公式：实际高度 / 0.5 (不需要加 1000)
+    height_val = int(max(0.0, float(getattr(drone, 'height', 50.0))) / 0.5) & 0xFFFF
+
+    # === 字节 19-20: 水平/垂直精度、速度精度 ===
+    # 7-4位垂直精度 (例如2代表均匀<10m)，3-0位水平精度 (例如1代表均匀<10m)
+    horiz_vert_acc = (2 << 4) | 2  
+    speed_acc = 1
+
+    # === 字节 21-24: 时间戳、时间戳精度、预留 ===
+    now = datetime.now()
+    seconds_this_hour = (now.minute * 60) + now.second + (now.microsecond / 1000000.0)
+    timestamp_val = int(seconds_this_hour * 10) & 0xFFFF
+    timestamp_acc = 1 # 0.1秒精度
+    reserved_byte = 0
+
+    # 组装 24 字节内容
+    payload_24 = struct.pack(
+        '<BBBBiiHHHBBHBB',
+        byte_1, byte_2_heading, speed_val, v_speed_val,
+        lat_val, lng_val,
+        press_alt, geo_alt, height_val,
+        horiz_vert_acc, speed_acc,
+        timestamp_val, timestamp_acc, reserved_byte
+    )
+
+    return msg_header + payload_24
 
 # 类似地，在这里放 encode_self_id, encode_system, encode_operator_id
 # ── Self ID ─────────────────────────────────────────────────────────────
@@ -148,4 +219,3 @@ def decode_operator_id(msg: bytes) -> Dict:
     type_names = {0: "Operator ID"}
     op_id = msg[2:22].rstrip(b'\x00').decode('utf-8', errors='replace')
     return {"Operator ID": f"{op_id} (type={type_names.get(operator_id_type, str(operator_id_type))})"}
-
