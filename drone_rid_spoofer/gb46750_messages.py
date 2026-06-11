@@ -290,10 +290,10 @@ def _encode_station_location_type(typ: int) -> bytes:
 
 
 def _encode_station_location(lat: int, lng: int) -> bytes:
-    """006: 8-byte LE lat|lng ×1e7. Unknown → 0xFFFFFFFF."""
+    """006: 8-byte LE lng|lat ×1e7. Unknown → 0xFFFFFFFF."""
     if lat is None or lng is None:
         return struct.pack('<I', 0xFFFFFFFF) + struct.pack('<I', 0xFFFFFFFF)
-    return struct.pack('<ii', lat, lng)
+    return struct.pack('<ii', lng, lat)
 
 
 def _encode_station_altitude(alt_m: float) -> bytes:
@@ -302,8 +302,8 @@ def _encode_station_altitude(alt_m: float) -> bytes:
 
 
 def _encode_ua_position(lat: int, lng: int) -> bytes:
-    """008: 8-byte LE lat|lng ×1e7."""
-    return struct.pack('<ii', lat, lng)
+    """008: 8-byte LE lng|lat ×1e7."""
+    return struct.pack('<ii', lng, lat)
 
 
 def _encode_track_angle(deg: float) -> bytes:
@@ -561,8 +561,8 @@ def decode_gb46750_packet(packet: bytes) -> Optional[Dict]:
             types = {0: "起飞点", 1: "遥控站"}
             result[name] = types.get(item_data[0], f"未知({item_data[0]})")
         elif item_id in (ITEM_STATION_LOCATION, ITEM_UA_POSITION):
-            lat = struct.unpack('<i', item_data[0:4])[0]
-            lng = struct.unpack('<i', item_data[4:8])[0]
+            lng = struct.unpack('<i', item_data[0:4])[0]
+            lat = struct.unpack('<i', item_data[4:8])[0]
             result[name] = f"({lat/1e7:.6f}, {lng/1e7:.6f})"
         elif item_id == ITEM_STATION_ALTITUDE:
             result[name] = f"{_decode_alt_gb46750(struct.unpack('<H', item_data)[0], 1000.0):.1f}m"

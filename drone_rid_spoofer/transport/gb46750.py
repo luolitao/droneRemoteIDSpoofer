@@ -222,8 +222,8 @@ class GB46750Backend(TransportBackend):
                 packets.append(frame)
 
                 self._tx_count += 1
-                if self._tx_count % self._LOG_BEACON_INTERVAL == 0:
-                    self._log_beacon_frame(frame, serial, seq_num)
+                # if self._tx_count % self._LOG_BEACON_INTERVAL == 0:
+                #     self._log_beacon_frame(frame, serial, seq_num)
 
             if packets:
                 try:

@@ -210,12 +210,12 @@ section("Test 6: 遥控站位置与高度 (Items 005, 006, 007)")
 check("起飞点 (0)", _encode_station_location_type(0) == b'\x00')
 check("遥控站 (1)", _encode_station_location_type(1) == b'\x01')
 
-# Station location: lat/lng ×1e7 LE
+# Station location: lng|lat ×1e7 LE (standard: 32-bit lng first, then 32-bit lat)
 lat, lng = 399267000, 1163830000
 encoded_loc = _encode_station_location(lat, lng)
 check("长度 = 8 字节", len(encoded_loc) == 8)
-check("Lat = 399267000 (LE)", struct.unpack('<i', encoded_loc[0:4])[0] == lat)
-check("Lng = 1163830000 (LE)", struct.unpack('<i', encoded_loc[4:8])[0] == lng)
+check("Lng = 1163830000 (LE, bytes 0-3)", struct.unpack('<i', encoded_loc[0:4])[0] == lng)
+check("Lat = 399267000 (LE, bytes 4-7)", struct.unpack('<i', encoded_loc[4:8])[0] == lat)
 
 # Unknown location
 encoded_unk = _encode_station_location(None, None)
@@ -232,8 +232,8 @@ section("Test 7: UA位置 (Item 008)")
 
 encoded = _encode_ua_position(399267000, 1163830000)
 check("长度 = 8 字节", len(encoded) == 8)
-check("Lat LE", struct.unpack('<i', encoded[0:4])[0] == 399267000)
-check("Lng LE", struct.unpack('<i', encoded[4:8])[0] == 1163830000)
+check("Lng LE (bytes 0-3)", struct.unpack('<i', encoded[0:4])[0] == 1163830000)
+check("Lat LE (bytes 4-7)", struct.unpack('<i', encoded[4:8])[0] == 399267000)
 
 
 # ── Test 8: Track Angle & Ground Speed ───────────────────────────────────
