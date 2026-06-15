@@ -10,8 +10,8 @@ from drone_rid_spoofer.transport.base import TransportBackend
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
-DEFAULT_LAT: int = 231291000   # = 23.1291 * 10^7  (Guangzhou)
-DEFAULT_LNG: int = 1132644000  # = 113.2644 * 10^7 (Guangzhou)
+DEFAULT_LAT: int = 231431000   # = 23.1291 * 10^7  (Guangzhou)
+DEFAULT_LNG: int = 1132604000  # = 113.2644 * 10^7 (Guangzhou)
 
 
 def parse_args() -> argparse.Namespace:

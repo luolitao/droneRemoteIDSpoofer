@@ -70,8 +70,8 @@ def main():
     transport = WifiTransport(interface=args.interface, ssid=chosen_ssid)
     
     # 4. 初始化位置基准（广东区域）
-    lat, lng = 23.1405123, 113.272756
-    alt, height = 150.0, 50.0
+    lat, lng = 23.1431123, 113.262756
+    alt, height = 100.0, 50.0
     
     print("="*60)
     print(f"🚀 [状态机启动成功]")
@@ -84,17 +84,17 @@ def main():
     
     while True:
         # 5. 产生轻微飞行位移游走
-        lat += random.uniform(-1e-6, 1e-6)
-        lng += random.uniform(-1e-6, 1e-6)
-        alt += random.uniform(-0.05, 0.05)
-        height += random.uniform(-0.05, 0.05)
+        lat += random.uniform(-1e-5, 1e-5)
+        lng += random.uniform(-1e-5, 1e-5)
+        alt += random.uniform(-0.5, 0.5)
+        height += random.uniform(-0.5, 0.5)
         
         # 6. 调用协议器原本的大包打包方法
         # 💡 注意：这里的方法名如果叫 encode_pack 或其他，请替换为你原本程序里的真实打包方法
         msg_pack = encoder.encode_message_pack(
             uas_id="CN-DRONE-123456",
             lat=lat, lng=lng, alt=alt, height=max(0, height),
-            heading=90.0, speed=12.5
+            heading=90.0, speed=1.5
         )
         
         # 7. 传输层广发
