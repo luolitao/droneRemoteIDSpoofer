@@ -4,7 +4,7 @@
     "interval": 1.0,
     "location": [
       23.1403,
-      113.2725
+      113.2625
     ],
     "transport": "gb",
     "gb": {
@@ -15,15 +15,15 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "GB_TEST_00001",
+      "serial": "GB42590_IBTM202401_1",
       "mac": "02:00:00:00:00:01",
       "start_location": [
         23.1405,
-        113.2727
+        113.2627
       ],
       "pilot_location": [
         23.1401,
-        113.2723
+        113.2623
       ],
       "operator_id": "GB-OP-TEST-0001",
       "operator_altitude": 25.0,

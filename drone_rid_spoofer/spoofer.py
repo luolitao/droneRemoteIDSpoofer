@@ -69,8 +69,10 @@ class DroneSpoofer:
     def _send(self, drone: DroneState) -> None:
         """Build messages and send via all backends.
 
-        按 GB 42590 / ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
+        按 ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
         Basic ID → Location → Self ID → System → Operator ID
+        按 GB 42590 标准，每个 beacon 帧应包含完整的 3 条消息：
+        Basic ID → Location → System
 
         GB 46750 使用自有数据包格式，不需要 ASTM 消息。
         """

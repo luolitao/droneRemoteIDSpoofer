@@ -1,6 +1,6 @@
 {
   "global": {
-    "interface": "wlan1",
+    "interface": "wlan2",
     "interval": 1.0,
     "location": [
       23.1403,

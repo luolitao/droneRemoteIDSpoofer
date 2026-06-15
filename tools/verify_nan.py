@@ -33,7 +33,7 @@ from drone_rid_spoofer.transport.nan import (
 )
 
 # Import the NAN SDF parser from sniff_gb
-from drone_rid_spoofer.sniff_gb import _parse_nan_sdf
+from tools.sniff_gb import _parse_nan_sdf
 
 # ── Test 1: Build messages → Message Pack → NAN SDF ─────────────────────
 

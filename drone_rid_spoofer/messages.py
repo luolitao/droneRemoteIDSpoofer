@@ -353,20 +353,20 @@ def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 2) -> bytes
       Vend Type(1) | Message Counter(1) | Message Pack(3 + N×25)
 
     The Message Pack consists of:
-      [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount(1)]
-      [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
+      [MsgType|Proto(2)] [MsgSize=25(1)] [MsgCount(1)]
+      [BasicID(25)] [Location(25)]  [System(25)] 
 
     Returns the complete vendor data (after OUI) for a single drone.
     """
     messages = (
         encode_basic_id(drone.serial, proto=proto)
         + encode_location(drone, proto=proto)
-        + encode_self_id(b"GB42590 Drone Remote ID", proto=proto)
+        # + encode_self_id(b"GB42590 Drone Remote ID", proto=proto)
         + encode_system(drone.pilot_location[0], drone.pilot_location[1],
                         proto=proto, operator_altitude=drone.operator_altitude)
-        + encode_operator_id(operator_id=drone.operator_id, proto=proto)
+        # + encode_operator_id(operator_id=drone.operator_id, proto=proto)
     )
-    msg_count = 5
+    msg_count = 3
     # Vend Type (0x0D) + Message Counter
     vend_and_counter = bytes([0x0D, send_counter & 0xFF])
     pack_header = bytes([
