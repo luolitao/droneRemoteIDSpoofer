@@ -6,7 +6,7 @@
       23.1403,
       113.2625
     ],
-    "transport": "gb",
+    "transport": "gb42590",
     "gb": {
       "channel": 6,
       "beacon_interval": 1.0
