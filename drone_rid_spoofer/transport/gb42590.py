@@ -59,7 +59,7 @@ class GB42590Backend(TransportBackend):
     SSID_MAX_LEN = 32
     SUPPORTED_RATES = b'\x82\x84\x8b\x96'
     EXTENDED_SUPPORTED_RATES = b'\x0c\x12\x18\x24\x30\x48\x60\x6c'
-    _LOG_BEACON_INTERVAL = 5  # 每 N 次发送打印一次 beacon 详情
+    _LOG_BEACON_INTERVAL = 100  # 每 N 次发送打印一次 beacon 详情
 
     def __init__(self, interface: str, channel: int = 6,
                  beacon_interval: float = 1.0):
@@ -131,8 +131,6 @@ class GB42590Backend(TransportBackend):
 
         # Radiotap header
         rt_len = struct.unpack('<H', raw[2:4])[0]
-        logger.info(f"  [Radiotap] len={rt_len}  hex={raw[:rt_len].hex()}")
-
         # 802.11 Header (24 bytes)
         mgmt_off = rt_len
         mgmt = raw[mgmt_off:mgmt_off + 24]
@@ -145,11 +143,6 @@ class GB42590Backend(TransportBackend):
 
         # Beacon body (12 bytes)
         beacon_off = mgmt_off + 24
-        beacon_body = raw[beacon_off:beacon_off + 12]
-        ts = struct.unpack('<Q', beacon_body[0:8])[0]
-        bi = struct.unpack('<H', beacon_body[8:10])[0]
-        cap = struct.unpack('<H', beacon_body[10:12])[0]
-        logger.info(f"  [Beacon] TSF={ts} BI={bi}TU Cap=0x{cap:04X}")
 
         # IEs
         ie_off = beacon_off + 12
@@ -172,14 +165,14 @@ class GB42590Backend(TransportBackend):
                 msg_size = msg_pack[1]
                 msg_count = msg_pack[2]
 
-                logger.info(f"  [IE {ie_id} ({name})] len={ie_len}")
+                # logger.info(f"  [IE {ie_id} ({name})] len={ie_len}")
                 logger.info(f"    OUI/CID={oui.hex(':').upper()}  VendType=0x{vend_type:02X}")
                 logger.info(f"    MessageCounter={counter_val}  "
                             f"PackType=0x{pack_type:X} Proto={pack_proto}  "
                             f"MsgSize={msg_size} MsgCount={msg_count}")
 
                 # 打印每条消息的摘要
-                msg_type_names = {0: 'BasicID', 1: 'Location', 3: 'SelfID', 4: 'System', 5: 'OperatorID'}
+                msg_type_names = {0: 'BasicID', 1: 'Location', 3: 'SelfID', 4: 'System' }
                 for m in range(msg_count):
                     start = 3 + m * msg_size   # skip 3-byte pack header
                     end = start + msg_size
@@ -203,17 +196,13 @@ class GB42590Backend(TransportBackend):
                     elif mt == 0x4:  # System
                         op_lat = struct.unpack('<i', msg[2:6])[0] / 1e7
                         op_lng = struct.unpack('<i', msg[6:10])[0] / 1e7
-                        logger.info(f"      Msg[{m}] {tname} v{pv}: Pilot=({op_lat:.6f}, {op_lng:.6f})")
-                    elif mt == 0x5:  # Operator ID
-                        op_id = msg[2:22].rstrip(b'\x00').decode('ascii', errors='replace')
-                        logger.info(f"      Msg[{m}] {tname} v{pv}: ID=\"{op_id}\"")
+                        logger.info(f"      Msg[{m}] {tname} v{pv}: Pilot=({op_lat:.6f}, {op_lng:.6f})")                    
                     else:
                         logger.info(f"      Msg[{m}] {tname} v{pv}")
             elif ie_id == 0:  # SSID
                 ssid_str = ie_data.decode('ascii', errors='replace')
                 logger.info(f"  [IE {ie_id} ({name})] len={ie_len}  SSID=\"{ssid_str}\"")
-            else:
-                logger.info(f"  [IE {ie_id} ({name})] len={ie_len}  data={ie_data.hex()}")
+
 
             ie_off += 2 + ie_len
 
@@ -249,9 +238,9 @@ class GB42590Backend(TransportBackend):
                 packets.append(frame)
 
                 # 定期打印 beacon 组包详情
-                self._tx_count += 1
                 if self._tx_count % self._LOG_BEACON_INTERVAL == 0:
                     self._log_beacon_frame(frame, serial, seq_num)
+                self._tx_count += 1
 
             if packets:
                 try:

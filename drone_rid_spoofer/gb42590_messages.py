@@ -15,15 +15,13 @@ from drone_rid_spoofer.state import DroneState
 # ── Constants ──────────────────────────────────────────────────────────
 
 MESSAGE_SIZE = 25
-PACK_MAX_MESSAGES = 9
+PACK_MAX_MESSAGES = 10
 
 class MsgType(IntEnum):
     BASIC_ID = 0x0
     LOCATION = 0x1
-    AUTH = 0x2
     SELF_ID = 0x3
     SYSTEM = 0x4
-    OPERATOR_ID = 0x5
     PACK = 0xF
 
 # ID Types
@@ -346,7 +344,7 @@ def build_message_pack(messages: List[bytes], proto: int = 2) -> bytes:
     return header + b''.join(messages)
 
 
-def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes:
+def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 2) -> bytes:
     """Build GB 42590 vendor IE data per Appendix A1 Table A.1.
 
     Layout:
@@ -354,7 +352,7 @@ def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes
 
     The Message Pack consists of:
       [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount(1)]
-      [BasicID(25)] [Location(25)] [System(25)] 
+      [BasicID(25)] [Location(25)] [SelfID(25)] [System(25)] [OperatorID(25)]
 
     Returns the complete vendor data (after OUI) for a single drone.
     """
@@ -364,8 +362,9 @@ def build_gb_pack(drone: DroneState, send_counter: int, proto: int = 1) -> bytes
         + encode_self_id(b"GB42590 Drone Remote ID", proto=proto)
         + encode_system(drone.pilot_location[0], drone.pilot_location[1],
                         proto=proto, operator_altitude=drone.operator_altitude)
+        + encode_operator_id(operator_id=drone.operator_id, proto=proto)
     )
-    msg_count = 3
+    msg_count = 5
     # Vend Type (0x0D) + Message Counter
     vend_and_counter = bytes([0x0D, send_counter & 0xFF])
     pack_header = bytes([
@@ -406,28 +405,4 @@ def build_all_messages(drone: DroneState, proto: int = 2) -> List[bytes]:
         encode_system(drone.pilot_location[0], drone.pilot_location[1],
                       proto=proto, operator_altitude=drone.operator_altitude),
         encode_operator_id(operator_id=drone.operator_id, proto=proto),
-    ]
-
-def build_gb42590_all_messages(drone: DroneState, proto: int = 1) -> List[bytes]:
-    """Build GB 42590 vendor IE data per Appendix A1 Table A.1.
-
-    Layout:
-      Vend Type(1) | Message Counter(1) | Message Pack(3 + N×25)
-
-    The Message Pack consists of:
-      [MsgType|Proto(1)] [MsgSize=25(1)] [MsgCount(1)]
-      [BasicID(25)] [Location(25)] [System(25)] 
-
-    Returns the complete vendor data (after OUI) for a single drone.
-    """
-    """Build all ASTM message payloads for a drone (protocol v2 by default).
-
-    Includes: Basic ID, Location, Self ID, System (pilot location + altitude),
-    Operator ID.
-    """
-    return [
-        encode_basic_id(drone.serial, proto=proto),
-        encode_location(drone, proto=proto, timestamp_offset=drone.timestamp_offset),
-        encode_system(drone.pilot_location[0], drone.pilot_location[1],
-                      proto=proto, operator_altitude=drone.operator_altitude),
     ]

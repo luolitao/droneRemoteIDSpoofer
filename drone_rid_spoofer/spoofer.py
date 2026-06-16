@@ -29,6 +29,7 @@ from drone_rid_spoofer.messages import (
     encode_system,
     encode_operator_id,
 )
+from drone_rid_spoofer.messages import build_all_messages,build_gb42590_all_messages
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
 from drone_rid_spoofer.transport.wifi import WifiBackend
@@ -39,10 +40,8 @@ from drone_rid_spoofer.transport.nan import NanBackend
 
 logger = logging.getLogger(__name__)
 
-
 class DroneSpoofer:
     """Main drone spoofing controller.
-
     GB 42590-2023 发送间隔要求：
       - 动态报文（Location）每 1 秒发送 1 次
       - 静态报文（Basic ID, Self ID, System, Operator ID）每 3 秒发送 1 次
@@ -67,36 +66,24 @@ class DroneSpoofer:
         logging.getLogger().setLevel(level)
 
     def _send(self, drone: DroneState) -> None:
-        """Build messages and send via all backends.
-
-        按 GB 42590 / ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
-        Basic ID → Location → Self ID → System → Operator ID
-
-        GB 46750 使用自有数据包格式，不需要 ASTM 消息。
-        """
+        """Build messages and send via all backends.         """
         key = drone.serial
         counter = self._send_counters.get(key, 0)
         self._send_counters[key] = counter + 1
 
         has_gb42590 = any(isinstance(b, GB42590Backend) for b in self.backends)
         has_gb46750 = any(isinstance(b, GB46750Backend) for b in self.backends)
-        proto = 2
 
-        # Build ASTM messages (used by GB 42590, WiFi, BLE, NAN backends)
-        messages = [
-            encode_basic_id(drone.serial, proto=proto),
-            encode_location(drone, proto=proto,
-                            timestamp_offset=drone.timestamp_offset),
-            encode_self_id(b"GB42590 Drone Remote ID", proto=proto),
-            encode_system(drone.pilot_location[0], drone.pilot_location[1],
-                          proto=proto, operator_altitude=drone.operator_altitude),
-            encode_operator_id(operator_id=drone.operator_id, proto=proto),
-        ]
+        if has_gb42590:     # 按GB42590标准，每个beacon帧包含3条消息：Basic ID → Location → System
+            messages = build_gb42590_all_messages(drone)
+        elif has_gb46750:   # GB 46750 使用自有数据包格式，不需要 ASTM 消息。
+            pass  
+        else:                # Build ASTM messages (used by WiFi, BLE, NAN backends)
+            messages = build_all_messages(drone)
 
         for backend in self.backends:
             backend.send_messages(drone, messages)
 
-        # self._log_drone_params(drone)
 
     def _get_transport_names(self) -> str:
         """返回当前激活的传输协议名称。"""
