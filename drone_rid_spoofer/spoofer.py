@@ -78,7 +78,7 @@ class DroneSpoofer:
         counter = self._send_counters.get(key, 0)
         self._send_counters[key] = counter + 1
 
-        has_gb = any(isinstance(b, GB42590Backend) for b in self.backends)
+        has_gb42590 = any(isinstance(b, GB42590Backend) for b in self.backends)
         has_gb46750 = any(isinstance(b, GB46750Backend) for b in self.backends)
         proto = 2
 
