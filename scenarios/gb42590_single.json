@@ -27,10 +27,10 @@
       ],
       "operator_id": "GB-OP-TEST-0001",
       "operator_altitude": 25.0,
-      "speed": 8.0,
+      "speed": 4.2,
       "vertical_speed": 0.5,
-      "geodetic_altitude": 120.0,
-      "pressure_altitude": 118.0,
+      "geodetic_altitude": 110.0,
+      "pressure_altitude": 108.0,
       "height": 60.0
     }
   ]

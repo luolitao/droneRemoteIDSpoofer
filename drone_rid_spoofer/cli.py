@@ -101,15 +101,6 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             from drone_rid_spoofer.transport.wifi import WifiBackend
             backends.append(WifiBackend(interface, ess=wifi_ess, channel=wifi_channel,
                                         beacon_interval=wifi_beacon_interval))
-
-        elif t in ("ble", "both"):
-            from drone_rid_spoofer.transport.ble import BleBackend
-            backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
-
-        elif t == "nan":
-            from drone_rid_spoofer.transport.nan import NanBackend
-            backends.append(NanBackend(interface, channel=nan_channel))
-
         elif t == "gb42590":
             from drone_rid_spoofer.transport.gb42590 import GB42590Backend
             backends.append(GB42590Backend(interface, channel=wifi_channel,
@@ -119,6 +110,14 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             from drone_rid_spoofer.transport.gb46750 import GB46750Backend
             backends.append(GB46750Backend(interface, channel=wifi_channel,
                                            beacon_interval=wifi_beacon_interval))
+
+        elif t == "nan":
+            from drone_rid_spoofer.transport.nan import NanBackend
+            backends.append(NanBackend(interface, channel=nan_channel))
+        
+        elif t in ("ble", "both"):
+            from drone_rid_spoofer.transport.ble import BleBackend
+            backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
 
     return backends
 
@@ -166,12 +165,12 @@ def main() -> None:
             
         if getattr(args, 'wifi_channel', None) is None:
             wifi_config = config_global.get("wifi", {})
-            gb_config = config_global.get("gb", {})
+            gb_config = config_global.get("gb46750", {})
             args.wifi_channel = int(wifi_config.get("channel") or gb_config.get("channel", 6))
             
         if getattr(args, 'wifi_beacon_interval', None) is None:
             wifi_config = config_global.get("wifi", {})
-            gb_config = config_global.get("gb", {})
+            gb_config = config_global.get("gb46750", {})
             args.wifi_beacon_interval = float(wifi_config.get("beacon_interval") or gb_config.get("beacon_interval", 1.0))
 
         # NAN configuration

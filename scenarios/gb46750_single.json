@@ -15,7 +15,7 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "UAS2024SIMTEST000001",
+      "serial": "GB467502025TEST00001",
       "mac": "02:00:00:00:00:02",
       "start_location": [
         23.1405,
@@ -25,16 +25,15 @@
         23.1401,
         113.2723
       ],
-      "operator_id": "GB47-OP-TEST-0001",
       "operator_altitude": 25.0,
-      "speed": 8.0,
+      "speed": 4.6,
       "vertical_speed": 0.5,
-      "geodetic_altitude": 120.0,
-      "pressure_altitude": 118.0,
-      "height": 60.0,
+      "geodetic_altitude": 110.0,
+      "pressure_altitude": 108.0,
+      "height": 20.0,
       "registration_mark": "UAS00001",
       "operation_category": 1,
-      "ua_classification": 2,
+      "ua_classification": 0,
       "station_location_type": 1,
       "horizontal_accuracy": 8,
       "vertical_accuracy": 4,

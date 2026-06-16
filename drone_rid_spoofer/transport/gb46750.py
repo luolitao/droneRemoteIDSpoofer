@@ -68,7 +68,7 @@ class GB46750Backend(TransportBackend):
     SSID_MAX_LEN = 32
     SUPPORTED_RATES = b'\x82\x84\x8b\x96'
     EXTENDED_SUPPORTED_RATES = b'\x0c\x12\x18\x24\x30\x48\x60\x6c'
-    _LOG_BEACON_INTERVAL = 5
+    _LOG_BEACON_INTERVAL = 20
 
     def __init__(self, interface: str, channel: int = 6,
                  beacon_interval: float = 1.0):
@@ -133,7 +133,6 @@ class GB46750Backend(TransportBackend):
         logger.info(f"{'='*60}")
 
         rt_len = struct.unpack('<H', raw[2:4])[0]
-        logger.info(f"  [Radiotap] len={rt_len}")
 
         mgmt_off = rt_len
         mgmt = raw[mgmt_off:mgmt_off + 24]
@@ -145,11 +144,6 @@ class GB46750Backend(TransportBackend):
         logger.info(f"  [802.11] FC=0x{fc:04X} DA={da} SA={sa} BSSID={bssid} SC={sc}")
 
         beacon_off = mgmt_off + 24
-        beacon_body = raw[beacon_off:beacon_off + 12]
-        ts = struct.unpack('<Q', beacon_body[0:8])[0]
-        bi = struct.unpack('<H', beacon_body[8:10])[0]
-        cap = struct.unpack('<H', beacon_body[10:12])[0]
-        #logger.info(f"  [Beacon] TSF={ts} BI={bi}TU Cap=0x{cap:04X}")
 
         ie_off = beacon_off + 12
         ie_names = {0: 'SSID', 1: 'Rates', 3: 'DSset', 5: 'TIM', 42: 'ERPinfo',
@@ -169,14 +163,11 @@ class GB46750Backend(TransportBackend):
                 logger.info(f"  [IE {ie_id} ({name})] len={ie_len}")
                 logger.info(f"    OUI/CID={oui.hex(':').upper()}  VendType=0x{vend_type:02X}")
                 logger.info(f"    MessageCounter={counter_val}  DataLen={len(gb_data)}")
-
                 logger.info(f"  [Vendor IE] Raw Data: {ie_data[:6].hex()}")
-
-                logger.info(f"  [gb_data] Raw Data: {gb_data[:10].hex()}")
+                logger.info(f"  [gb_data] Raw Data: {gb_data[:40].hex()}")
 
                 # Decode GB 46750 packet
-                # decoded = decode_gb46750_packet(gb_data)
-                decoded = False
+                decoded = decode_gb46750_packet(gb_data)
                 if decoded:
                     for key, val in decoded.items():
                         if not key.startswith('_'):
@@ -186,13 +177,12 @@ class GB46750Backend(TransportBackend):
             elif ie_id == 0:
                 ssid_str = ie_data.decode('ascii', errors='replace')
                 logger.info(f"  [IE {ie_id} ({name})] len={ie_len}  SSID=\"{ssid_str}\"")
-            else:
-                logger.info(f"  [IE {ie_id} ({name})] len={ie_len}")
+ 
 
             ie_off += 2 + ie_len
 
         logger.info(f"  Total frame size: {len(raw)} bytes")
-        # logger.info(f"{'='*60}\n")
+        logger.info(f"{'='*60}\n")
 
     def _transmit_loop(self) -> None:
         """Continuously broadcast all active GB 46750 beacons."""
@@ -221,9 +211,9 @@ class GB46750Backend(TransportBackend):
                 frame = radiotap / dot11_base / beacon_base / ies
                 packets.append(frame)
 
-                self._tx_count += 1
                 if self._tx_count % self._LOG_BEACON_INTERVAL == 0:
                     self._log_beacon_frame(frame, serial, seq_num)
+                self._tx_count += 1
 
             if packets:
                 try:

@@ -30,6 +30,7 @@ from drone_rid_spoofer.messages import (
     encode_operator_id,
 )
 from drone_rid_spoofer.messages import build_all_messages,build_gb42590_all_messages
+from drone_rid_spoofer.gb46750_messages import build_gb46750_all_messages
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
 from drone_rid_spoofer.transport.wifi import WifiBackend
@@ -77,7 +78,7 @@ class DroneSpoofer:
         if has_gb42590:     # 按GB42590标准，每个beacon帧包含3条消息：Basic ID → Location → System
             messages = build_gb42590_all_messages(drone)
         elif has_gb46750:   # GB 46750 使用自有数据包格式，不需要 ASTM 消息。
-            pass  
+            messages = build_gb46750_all_messages(drone)
         else:                # Build ASTM messages (used by WiFi, BLE, NAN backends)
             messages = build_all_messages(drone)
 
@@ -279,6 +280,7 @@ class DroneSpoofer:
             drone_transport = entry.get("transport")
             timestamp_offset = entry.get("timestamp_offset_minutes", 0.0)
             operator_id = entry.get("operator_id", get_random_operator_id())
+            
             operator_altitude = float(entry.get("operator_altitude",
                                                 random.uniform(0.0, 50.0)))
 
@@ -290,7 +292,7 @@ class DroneSpoofer:
                 anchor_lat, anchor_lng = base_lat, base_lng
 
             drone = DroneState(
-                serial=serial_bytes,
+                serial=serial_bytes,                
                 pilot_location=pilot_loc,
                 lat=lat,
                 lng=lng,
@@ -305,10 +307,18 @@ class DroneSpoofer:
                 operator_altitude=operator_altitude,
                 anchor_lat=anchor_lat,
                 anchor_lng=anchor_lng,
+                registration_mark = entry.get("registration_mark"),
+                operation_category=entry.get("operation_category"),
+                horizontal_accuracy=entry.get("horizontal_accuracy"),
+                vertical_accuracy=entry.get("vertical_accuracy"),
+                speed_accuracy=entry.get("speed_accuracy"),
+                timestamp_accuracy=entry.get("timestamp_accuracy")
+
             )
             self._seed_kinematics(drone, overrides=self._extract_kinematic_overrides(entry))
             drones.append(drone)
             logger.info(f"Drone created: Serial={serial_bytes.decode()} "
+                        f"operator_id={operator_id}"
                         f"Lat={lat/1e7:.6f}° Lng={lng/1e7:.6f}° "
                         f"Alt={drone.geodetic_altitude:.1f}m Speed={drone.speed:.2f}m/s "
                         f"Dir={drone.direction:.1f}° Mode={mode} "
