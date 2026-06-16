@@ -2,13 +2,31 @@
   "global": {
     "interface": "wlan1",
     "interval": 1.0,
-    "location": [23.1403, 113.2725]
+    "location": [
+      23.1403,
+      113.2725
+    ]
   },
   "drones": [
-    { "mode": "random", "serial": "TEST_SWARM_01" },
-    { "mode": "random", "serial": "TEST_SWARM_02" },
-    { "mode": "random", "serial": "TEST_SWARM_03" },
-    { "mode": "random", "serial": "TEST_SWARM_04" },
-    { "mode": "random", "serial": "TEST_SWARM_05" }
+    {
+      "mode": "random",
+      "serial": "TEST_SWARM_01"
+    },
+    {
+      "mode": "random",
+      "serial": "TEST_SWARM_02"
+    },
+    {
+      "mode": "random",
+      "serial": "TEST_SWARM_03"
+    },
+    {
+      "mode": "random",
+      "serial": "TEST_SWARM_04"
+    },
+    {
+      "mode": "random",
+      "serial": "TEST_SWARM_05"
+    }
   ]
 }
