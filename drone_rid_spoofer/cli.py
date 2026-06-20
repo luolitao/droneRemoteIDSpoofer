@@ -11,8 +11,8 @@ from drone_rid_spoofer.config_validator import validate_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
-DEFAULT_LAT: int = 231431000   # = 23.1291 * 10^7  (Guangzhou)
-DEFAULT_LNG: int = 1132604000  # = 113.2644 * 10^7 (Guangzhou)
+DEFAULT_LAT: int = 231291000   # = 23.1291 * 10^7  (Guangzhou)
+DEFAULT_LNG: int = 1132644000  # = 113.2644 * 10^7 (Guangzhou)
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,35 +102,14 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             from drone_rid_spoofer.transport.wifi import WifiBackend
             backends.append(WifiBackend(interface, ess=wifi_ess, channel=wifi_channel,
                                         beacon_interval=wifi_beacon_interval))
-<<<<<<< Updated upstream
-
-=======
         elif t == "nan":
             from drone_rid_spoofer.transport.nan import NanBackend
             backends.append(NanBackend(interface, channel=nan_channel))
         
->>>>>>> Stashed changes
         elif t in ("ble", "both"):
             from drone_rid_spoofer.transport.ble import BleBackend
             backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
 
-<<<<<<< Updated upstream
-        elif t == "nan":
-            from drone_rid_spoofer.transport.nan import NanBackend
-            backends.append(NanBackend(interface, channel=nan_channel))
-
-        elif t == "gb":
-            from drone_rid_spoofer.transport.gb42590 import GB42590Backend
-            backends.append(GB42590Backend(interface, channel=wifi_channel,
-                                           beacon_interval=wifi_beacon_interval))
-
-        elif t == "gb46750":
-            from drone_rid_spoofer.transport.gb46750 import GB46750Backend
-            backends.append(GB46750Backend(interface, channel=wifi_channel,
-                                           beacon_interval=wifi_beacon_interval))
-
-=======
->>>>>>> Stashed changes
     return backends
 
 
@@ -187,12 +166,12 @@ def main() -> None:
             
         if getattr(args, 'wifi_channel', None) is None:
             wifi_config = config_global.get("wifi", {})
-            gb_config = config_global.get("gb", {})
+            gb_config = config_global.get("gb46750", {})
             args.wifi_channel = int(wifi_config.get("channel") or gb_config.get("channel", 6))
             
         if getattr(args, 'wifi_beacon_interval', None) is None:
             wifi_config = config_global.get("wifi", {})
-            gb_config = config_global.get("gb", {})
+            gb_config = config_global.get("gb46750", {})
             args.wifi_beacon_interval = float(wifi_config.get("beacon_interval") or gb_config.get("beacon_interval", 1.0))
 
         # NAN configuration

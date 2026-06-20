@@ -16,7 +16,7 @@
   "drones": [
     {
       "mode": "random",
-      "serial": "UAS2024SIMTEST000001",
+      "serial": "GB467502025TEST00001",
       "mac": "02:00:00:00:00:02",
       "protocol": "gb46750",
       "physical_transport": "wifi",
@@ -28,22 +28,15 @@
         23.1401,
         113.2723
       ],
-      "operator_id": "GB47-OP-TEST-0001",
       "operator_altitude": 25.0,
-      "speed": 1.0,
+      "speed": 4.6,
       "vertical_speed": 0.5,
-<<<<<<< Updated upstream
-      "geodetic_altitude": 120.0,
-      "pressure_altitude": 118.0,
-      "height": 60.0,
-=======
       "geodetic_altitude": 98.0,
       "pressure_altitude": 108.0,
       "height": 50.0,
->>>>>>> Stashed changes
       "registration_mark": "UAS00001",
       "operation_category": 1,
-      "ua_classification": 2,
+      "ua_classification": 0,
       "station_location_type": 1,
       "horizontal_accuracy": 11,
       "vertical_accuracy": 5,

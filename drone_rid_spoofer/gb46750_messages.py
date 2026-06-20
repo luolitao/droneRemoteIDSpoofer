@@ -8,15 +8,15 @@ Packet format (Figure 3 / Table 1):
   │ Field    │ Bytes│ Description                            │
   ├──────────┼──────┼────────────────────────────────────────┤
   │ DataType │  1   │ 255 (0xFF) — 运行识别信息数据包        │
-  │ Version  │  1   │ Bits 7-5: 001; Bits 4-0: 0-31 (V1.X)  │
+  │ Version  │  1   │ Bits 0-2: 001; Bits 3-7: 0-63 (V1.X)  │
   │ Length   │  1   │ Total data item bytes (1-200)          │
   │ Flags    │ 3+N  │ Identifier flags with extension        │
   │ Data     │ var  │ Data items per Table 3                 │
   └──────────┴──────┴────────────────────────────────────────┘
 
 Identifier flags (Table 2):
-  Each byte: bits 7-1 = item present flag (1=send), bit 0 = extension flag
-  Bit 0=0 → end of flags; Bit 0=1 → next byte is also flags
+  Each byte: bits 0-6 = item present flag (1=send), bit 7 = extension flag
+  Bit 7=0 → end of flags; Bit 7=1 → next byte is also flags
 
 Data items (Table 3, 21 items):
   001: Unique Product ID       20B ASCII
@@ -47,18 +47,19 @@ References:
 
 import struct
 import time
+import logging
 from enum import IntEnum
 from typing import Dict, List, Optional, Tuple
 
-
+from drone_rid_spoofer.state import DroneState
 # ── Constants ──────────────────────────────────────────────────────────
 
 # GB 46750 data type identifier
 GB46750_DATA_TYPE = 0xFF
 
-# Version: bits 7-5 = 001 (major), bits 4-0 = minor version
-GB46750_VERSION_BASE = 0x20   # 0b00100000, V1.X
-GB46750_VERSION_MINOR = 0     # V1.0
+# Version: bits 0-2 = 001, bits 3-7 = minor version
+GB46750_VERSION_BASE = 0b0010  # bits 0-3
+GB46750_VERSION_MINOR = 0     # bits 4-7: V1.0
 
 # Item IDs (001-021)
 ITEM_UNIQUE_PRODUCT_ID = 1
@@ -210,60 +211,78 @@ def _decode_alt_gb46750(raw: int, base: float = 1000.0) -> float:
 
 
 # ── Flag encoding ────────────────────────────────────────────────────
-
 def _encode_flags(item_ids: List[int]) -> bytes:
     """Encode identifier flags per Table 2.
 
-    Each byte: bits 7-1 map to items 1-7 in sequence (per flag byte group).
-    Bit 0 = 1 if more flag bytes follow, 0 if this is the last.
+    根据协议标准 (表2) 的实际掩码映射关系：
+    - 每个字节中的 items 1-7 对应 bit 7 到 bit 1 (即 0x80 到 0x02)。
+    - 扩展标志位对应 bit 0 (即 0x01)。
+      (Bit 0 = 1 表示后面还有标识字节，0 表示这是最后一个字节)。
 
-    The 21 items are distributed across flag bytes:
-      Byte 1 (bits 7-1): items 1-7
-      Byte 2 (bits 7-1): items 8-14
-      Byte 3 (bits 7-1): items 15-21
+    21 个数据项分布在标识字节中：
+      字节 1 (bits 7-1): items 1-7,   bit 0: 扩展标志
+      字节 2 (bits 7-1): items 8-14,  bit 0: 扩展标志
+      字节 3 (bits 7-1): items 15-21, bit 0: 扩展标志
     """
     flags = []
     for group_start in (1, 8, 15):
         byte_val = 0
+        has_any = False
         for bit_idx in range(7):
             item_id = group_start + bit_idx
             if item_id in item_ids:
-                byte_val |= (0x80 >> bit_idx)  # bit7 → item1, bit1 → item7
-        flags.append(byte_val)
+                # 映射关系：item 1 -> bit 7 (0x80), item 2 -> bit 6 (0x40) ... item 7 -> bit 1 (0x02)
+                byte_val |= (1 << (7 - bit_idx))
+                has_any = True
+                
+        if has_any or group_start <= 15:  # 始终包含必选的组 (此处逻辑保持原样)
+            flags.append(byte_val)
 
-    # Set extension bits: all but last have bit 0 = 1
+    # 设置扩展标志位：除了最后一个字节外，其余字节的 bit 0 均置为 1 (0x01)
     result = bytearray()
     for i, f in enumerate(flags):
         if i < len(flags) - 1:
+            # 非最后一个字节，设置扩展位 0x01
             result.append(f | 0x01)
         else:
+            # 最后一个字节，确保扩展位为 0 (0xFE 即二进制的 1111 1110)
             result.append(f & 0xFE)
+            
     return bytes(result)
-
 
 def _decode_flags(data: bytes, offset: int = 0) -> Tuple[List[int], int]:
     """Decode identifier flags, return (list of item IDs, new offset).
-
-    Each byte: bits 7-1 = item present, bit 0 = has more bytes.
+    
+    根据协议标准 (表2) 的实际掩码映射关系：
+    - 每个字节中的 items 1-7 对应 bit 7 到 bit 1 (即 0x80 到 0x02)。
+    - 扩展标志位对应 bit 0 (即 0x01)。
     """
     item_ids = []
     group_start = 1
+    
     while offset < len(data):
         byte_val = data[offset]
         offset += 1
+        
+        # 1. 解析数据内容项 (bit 7 到 bit 1)
         for bit_idx in range(7):
-            if byte_val & (0x80 >> bit_idx):  # bit7 → item1, bit1 → item7
+            # 映射关系：bit_idx=0 对应 bit 7 (0x80), bit_idx=6 对应 bit 1 (0x02)
+            if byte_val & (1 << (7 - bit_idx)):
                 item_id = group_start + bit_idx
                 if item_id <= 21:
                     item_ids.append(item_id)
-        if not (byte_val & 0x01):  # bit 0 = 0 → end
+                    
+        # 2. 检查扩展标志位 (bit 0)
+        # 如果 bit 0 为 0，说明这是最后一个标识字节，结束解析
+        if not (byte_val & 0x01):  
             break
+            
         group_start += 7
+        
     return item_ids, offset
 
 
 # ── Individual item encoders ─────────────────────────────────────────
-
 def _encode_unique_product_id(serial: bytes) -> bytes:
     """001: 20-byte ASCII product ID, big-endian, NULL-padded."""
     return serial[:20].ljust(20, b'\x00')
@@ -290,7 +309,7 @@ def _encode_station_location_type(typ: int) -> bytes:
 
 
 def _encode_station_location(lat: int, lng: int) -> bytes:
-    """006: 8-byte LE lng|lat ×1e7. Unknown → 0xFFFFFFFF."""
+    """006: 8-byte LE lat|lng ×1e7. Unknown → 0xFFFFFFFF."""
     if lat is None or lng is None:
         return struct.pack('<I', 0xFFFFFFFF) + struct.pack('<I', 0xFFFFFFFF)
     return struct.pack('<ii', lng, lat)
@@ -302,7 +321,8 @@ def _encode_station_altitude(alt_m: float) -> bytes:
 
 
 def _encode_ua_position(lat: int, lng: int) -> bytes:
-    """008: 8-byte LE lng|lat ×1e7."""
+    if lat is None or lng is None:
+        return struct.pack('<I', 0xFFFFFFFF) + struct.pack('<I', 0xFFFFFFFF)
     return struct.pack('<ii', lng, lat)
 
 
@@ -501,8 +521,8 @@ def build_gb46750_packet(
     # Build flags
     flags = _encode_flags(item_ids)
 
-    # Build version byte: bits 7-5 = 001 (major), bits 4-0 = minor version
-    version_byte = GB46750_VERSION_BASE | (GB46750_VERSION_MINOR & 0x1F)
+    # Build version byte: bits 0-2 = 001, bits 3-7 = minor version
+    version_byte = (GB46750_VERSION_BASE << 4) | (GB46750_VERSION_MINOR )
 
     # Assemble full packet
     packet = bytearray()
@@ -525,7 +545,7 @@ def decode_gb46750_packet(packet: bytes) -> Optional[Dict]:
 
     version_byte = packet[1]
     version_major = 1
-    version_minor = version_byte & 0x1F
+    version_minor = (version_byte >> 3) & 0x1F
     version = f"V{version_major}.{version_minor}"
 
     data_length = packet[2]
@@ -561,8 +581,8 @@ def decode_gb46750_packet(packet: bytes) -> Optional[Dict]:
             types = {0: "起飞点", 1: "遥控站"}
             result[name] = types.get(item_data[0], f"未知({item_data[0]})")
         elif item_id in (ITEM_STATION_LOCATION, ITEM_UA_POSITION):
-            lng = struct.unpack('<i', item_data[0:4])[0]
-            lat = struct.unpack('<i', item_data[4:8])[0]
+            lat = struct.unpack('<i', item_data[0:4])[0]
+            lng = struct.unpack('<i', item_data[4:8])[0]
             result[name] = f"({lat/1e7:.6f}, {lng/1e7:.6f})"
         elif item_id == ITEM_STATION_ALTITUDE:
             result[name] = f"{_decode_alt_gb46750(struct.unpack('<H', item_data)[0], 1000.0):.1f}m"
@@ -616,3 +636,31 @@ def decode_gb46750_packet(packet: bytes) -> Optional[Dict]:
         data_start += size
 
     return result
+
+
+def build_gb46750_all_messages(drone: DroneState) -> List[bytes]:
+    # logging.info(f"drone.timestamp_offset", {drone.end_time})
+    return [build_gb46750_packet(serial = drone.serial,
+                                registration_mark=drone.registration_mark,
+                                operation_category=drone.operation_category,
+                                ua_classification=drone.ua_classification,
+                                station_lat= drone.anchor_lat,
+                                station_lng = drone.anchor_lng,
+                                station_altitude = drone.operator_altitude,
+                                ua_lat = drone.lat,
+                                ua_lng = drone.lng,
+                                track_angle = drone.direction,
+                                ground_speed = drone.speed,
+                                relative_height = drone.height,
+                                vertical_speed = drone.vertical_speed,
+                                geodetic_altitude = drone.geodetic_altitude,
+                                barometric_altitude = drone.pressure_altitude,
+                                operation_status = OperationStatus.AIR,
+                                coordinate_system = CoordinateSystem.WGS84,
+                                horizontal_accuracy = drone.horizontal_accuracy,
+                                vertical_accuracy = drone.vertical_accuracy,
+                                speed_accuracy = drone.speed_accuracy,
+                                timestamp_ms = None,
+                                timestamp_accuracy = drone.timestamp_accuracy,
+                                include_optional = True,)]
+    
