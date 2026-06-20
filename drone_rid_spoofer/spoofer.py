@@ -6,6 +6,8 @@ import sys
 import termios
 import time
 import tty
+import concurrent.futures
+import threading
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -32,15 +34,30 @@ from drone_rid_spoofer.messages import (
 from drone_rid_spoofer.state import DroneState
 from drone_rid_spoofer.transport.base import TransportBackend
 from drone_rid_spoofer.transport.wifi import WifiBackend
-from drone_rid_spoofer.transport.gb42590 import GB42590Backend
-from drone_rid_spoofer.transport.gb46750 import GB46750Backend
 from drone_rid_spoofer.transport.ble import BleBackend
 from drone_rid_spoofer.transport.nan import NanBackend
+
+import argparse
+import logging
+from typing import List
+
+from drone_rid_spoofer.state import DroneState
+from drone_rid_spoofer.transport.base import TransportBackend
+from drone_rid_spoofer.transport.wifi import WifiBackend
+from drone_rid_spoofer.transport.ble import BleBackend
+from drone_rid_spoofer.transport.nan import NanBackend
+from drone_rid_spoofer.messages import build_all_messages, build_gb42590_all_messages
+from drone_rid_spoofer.gb46750_messages import build_gb46750_all_messages
+from drone_rid_spoofer.drone_factory import DroneFactory
+from drone_rid_spoofer.scheduler import Scheduler
+from drone_rid_spoofer.manual_controller import ManualController
+from drone_rid_spoofer.logger_utils import log_first_packet, log_100th_packet, log_drone_params
 
 logger = logging.getLogger(__name__)
 
 
 class DroneSpoofer:
+<<<<<<< Updated upstream
     """Main drone spoofing controller.
 
     GB 42590-2023 发送间隔要求：
@@ -51,22 +68,34 @@ class DroneSpoofer:
     # 静态报文类型列表（按轮转顺序）
     STATIC_MSG_TYPES = ("Basic ID", "Self ID", "System", "Operator ID")
 
+=======
+>>>>>>> Stashed changes
     def __init__(self, args: argparse.Namespace, backends: List[TransportBackend]):
         self.args = args
         self.backends = backends
         self.base_location = args.location
-        self._send_counters: dict = {}  # per-drone counter: serial -> int
-        self._static_indices: dict = {}  # per-drone static rotation index
-        self._has_wifi = any(isinstance(b, (WifiBackend, GB42590Backend, GB46750Backend, NanBackend))
-                            for b in backends)
-        self._has_ble = any(isinstance(b, BleBackend) for b in backends)
+        self._send_counters = {}
+        self._lock = threading.Lock()
+        # 构建 physical_backends 映射
+        self.physical_backends = {}
+        for b in backends:
+            if isinstance(b, WifiBackend):
+                self.physical_backends['wifi'] = b
+            elif isinstance(b, NanBackend):
+                self.physical_backends['nan'] = b
+            elif isinstance(b, BleBackend):
+                self.physical_backends['ble'] = b
+        self.default_backends = backends
+        self.has_wifi = any(isinstance(b, (WifiBackend, NanBackend)) for b in backends)
+        self.has_ble = any(isinstance(b, BleBackend) for b in backends)
         self._setup_logging()
 
-    def _setup_logging(self) -> None:
+    def _setup_logging(self):
         level = logging.DEBUG if getattr(self.args, 'verbose', False) else logging.INFO
         logging.getLogger().setLevel(level)
 
     def _send(self, drone: DroneState) -> None:
+<<<<<<< Updated upstream
         """Build messages and send via all backends.
 
         按 GB 42590 / ASTM F3411-22a 标准，每个 beacon 帧应包含完整的 5 条消息：
@@ -92,22 +121,48 @@ class DroneSpoofer:
                           proto=proto, operator_altitude=drone.operator_altitude),
             encode_operator_id(operator_id=drone.operator_id, proto=proto),
         ]
+=======
+        with self._lock:
+            counter = self._send_counters.get(drone.serial, 0)
+            self._send_counters[drone.serial] = counter + 1
+        if counter == 0:
+            log_first_packet(drone)
+        elif counter % 100 == 0:
+            log_100th_packet(drone, counter)
 
-        for backend in self.backends:
-            backend.send_messages(drone, messages)
+        protocol = drone.protocol or "astm"
+        if protocol == "gb46750":
+            messages = build_gb46750_all_messages(drone)
+        elif protocol == "gb42590":
+            messages = build_gb42590_all_messages(drone)
+        else:
+            messages = build_all_messages(drone)
+>>>>>>> Stashed changes
 
+        if drone.physical_transport:
+            transport_types = [t.strip() for t in drone.physical_transport.split(",")]
+            backends_to_use = [self.physical_backends.get(t) for t in transport_types if self.physical_backends.get(t)]
+        else:
+            backends_to_use = self.default_backends
+
+<<<<<<< Updated upstream
         # self._log_drone_params(drone)
+=======
+        for backend in backends_to_use:
+            try:
+                backend.send_messages(drone, messages, protocol)
+            except Exception as e:
+                logger.error(f"Send via {backend} failed: {e}")
+
+        transport_display = drone.physical_transport or "default"
+        log_drone_params(drone, counter, transport_display)
+>>>>>>> Stashed changes
 
     def _get_transport_names(self) -> str:
-        """返回当前激活的传输协议名称。"""
         names = []
         for b in self.backends:
-            if isinstance(b, GB42590Backend):
-                names.append("GB 42590 Wi-Fi Beacon")
-            elif isinstance(b, GB46750Backend):
-                names.append("GB 46750 Wi-Fi Beacon")
-            elif isinstance(b, WifiBackend):
-                names.append("ASTM Wi-Fi Beacon")
+            if isinstance(b, WifiBackend):
+                names.append("ASTM/GB Wi-Fi Beacon")
             elif isinstance(b, NanBackend):
                 names.append("Wi-Fi NAN")
             elif isinstance(b, BleBackend):
@@ -116,89 +171,32 @@ class DroneSpoofer:
                 names.append(type(b).__name__)
         return " + ".join(names)
 
-    def _log_drone_params(self, drone: DroneState, msg_type: str = "",
-                          static_name: str = "") -> None:
-        """Simplified one-line log per transmission."""
-        transport = self._get_transport_names()
-        lat = drone.lat / 1e7
-        lng = drone.lng / 1e7
-        logger.info(
-            f"[{transport}] {drone.serial.decode():<20} "
-            f"({lat:.6f}, {lng:.6f}) "
-            f"Alt={drone.geodetic_altitude:.1f}m Spd={drone.speed:.2f}m/s "
-            f"Dir={drone.direction:.1f}° "
-            f"OP={drone.operator_id}"
-        )
-
-    def run_manual_mode(self) -> None:
-        """Run controlled drone spoofing with keyboard input."""
-        logger.info("Starting MANUAL MODE - Use WASD to control drone movement")
-
+    def run_manual_mode(self):
         serial = self.args.serial.encode() if self.args.serial else get_random_serial_number()
         lat, lng = random_location(*self.args.location, 10000)
         pilot_loc = get_random_pilot_location(lat, lng)
-        mac_addr = generate_wifi_mac() if self._has_wifi else "00:00:00:00:00:00"
-        ble_addr = generate_ble_mac() if self._has_ble else "00:00:00:00:00:00"
-
+        mac_addr = generate_wifi_mac() if self.has_wifi else "00:00:00:00:00:00"
+        ble_addr = generate_ble_mac() if self.has_ble else "00:00:00:00:00:00"
         drone = DroneState(serial, pilot_loc, lat, lng, mac_addr, ble_addr,
                            operator_id=get_random_operator_id(),
                            operator_altitude=random.uniform(0.0, 50.0),
                            anchor_lat=lat, anchor_lng=lng)
-        self._seed_kinematics(drone)
-        logger.info(f"Drone created: Serial={serial.decode()} "
-                    f"Lat={lat/1e7:.6f}° Lng={lng/1e7:.6f}° "
-                    f"Alt={drone.geodetic_altitude:.1f}m Speed={drone.speed:.2f}m/s "
-                    f"Dir={drone.direction:.1f}°")
+        # 设置初始运动学
+        factory = DroneFactory(self.base_location, self.has_wifi, self.has_ble)
+        factory._seed_kinematics(drone)
+        controller = ManualController(self.args.interval, self._send)
+        controller.run(drone)
 
-        self._run_manual_control_loop(drone)
-
-    def _run_manual_control_loop(self, drone: DroneState) -> None:
-        next_send = datetime.now()
-        stdin_fd = sys.stdin.fileno()
-        original_settings = termios.tcgetattr(stdin_fd)
-
-        try:
-            tty.setcbreak(stdin_fd)
-
-            while True:
-                if self._has_keyboard_input():
-                    key = sys.stdin.read(1)
-                    self._process_movement_key(drone, key)
-
-                if datetime.now() >= next_send:
-                    self._send(drone)
-                    next_send = datetime.now() + timedelta(seconds=self.args.interval)
-
-                time.sleep(self.args.interval)
-
-        except KeyboardInterrupt:
-            logger.info("Manual mode stopped by user")
-        finally:
-            termios.tcsetattr(stdin_fd, termios.TCSANOW, original_settings)
-
-    def _has_keyboard_input(self) -> bool:
-        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
-
-    def _process_movement_key(self, drone: DroneState, key: str) -> None:
-        key_map = {
-            'w': 'north',
-            's': 'south',
-            'a': 'west',
-            'd': 'east'
-        }
-
-        if key in key_map:
-            direction = key_map[key]
-            drone.move(direction, 1000)
-            logger.info(f"Moved {direction.upper()}")
-
-    def run_automatic_mode(self) -> None:
+    def run_automatic_mode(self):
+        factory = DroneFactory(self.base_location, self.has_wifi, self.has_ble)
         if self.args.drones_config:
-            drones = self._create_drones_from_config(self.args.drones_config)
+            drones = factory.create_from_config(self.args.drones_config)
             logger.info(f"Starting AUTOMATIC MODE - spoofing {len(drones)} drones from config")
         else:
             n_drones = max(1, self.args.random)
+            drones = factory.create_random_drones(n_drones)
             logger.info(f"Starting AUTOMATIC MODE - spoofing {n_drones} drones")
+<<<<<<< Updated upstream
             drones = self._create_drones(n_drones)
 
         self._run_automatic_loop(drones)
@@ -417,3 +415,7 @@ class DroneSpoofer:
             drone.next_waypoint_time = now + timedelta(seconds=hold)
         else:
             drone.next_waypoint_time = now + timedelta(seconds=3600)
+=======
+        scheduler = Scheduler(self.args.interval, self._send)
+        scheduler.run(drones)
+>>>>>>> Stashed changes

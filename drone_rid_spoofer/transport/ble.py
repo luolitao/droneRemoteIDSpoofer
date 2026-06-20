@@ -254,15 +254,13 @@ class BleBackend(TransportBackend):
             self._static_index[drone_key] = (idx + 1) % len(static_msgs)
         return sequence
 
-    def send_messages(self, drone: DroneState, messages: List[bytes]) -> None:
+    def send_messages(self, drone: DroneState, messages: List[bytes], protocol: str = "astm") -> None:
         """Send ASTM messages as individual BLE advertisements.
 
-        Each cycle sends Location at 3x and one rotating static message
-        (BasicID/Self-ID/System/OperatorID), keeping the per-drone budget
-        at 4 advertisements.
+        BLE only supports ASTM protocol; other protocols are ignored with a warning.
         """
-        if not self._sock:
-            logger.error("BLE socket not open")
+        if protocol != "astm":
+            logger.warning(f"BLE does not support protocol '{protocol}', skipping send for {drone.serial.decode()}")
             return
 
         # Get or initialize counter for this drone

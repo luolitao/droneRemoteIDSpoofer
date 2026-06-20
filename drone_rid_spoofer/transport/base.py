@@ -8,7 +8,8 @@ class TransportBackend(ABC):
     """Abstract base class for RID transport backends."""
 
     @abstractmethod
-    def send_messages(self, drone: DroneState, messages: List[bytes]) -> None:
+    def send_messages(self, drone: DroneState, messages: List[bytes], protocol: str = "astm") -> None:
+        pass
         """Send ASTM RID messages for a drone.
 
         Args:

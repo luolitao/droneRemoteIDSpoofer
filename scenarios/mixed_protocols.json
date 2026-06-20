@@ -1,0 +1,69 @@
+{
+  "global": {
+    "interface": "wlan1",
+    "interval": 1.0,
+    "location": [23.1403, 113.2725],
+    "physical_transport": "wifi,ble",
+    "protocol": "astm",
+    "wifi": {
+      "channel": 6,
+      "beacon_interval": 1.0
+    }
+  },
+  "drones": [
+    {
+      "mode": "random",
+      "serial": "MIXED_ASTM_01",
+      "protocol": "astm",
+      "physical_transport": "wifi",
+      "start_location": [23.1403, 113.2725],
+      "pilot_location": [23.1401, 113.2723],
+      "operator_altitude": 25.0,
+      "speed": 4.0,
+      "vertical_speed": 0.5,
+      "geodetic_altitude": 100.0,
+      "pressure_altitude": 105.0,
+      "height": 50.0,
+      "operator_id": "OP-ASTM-001"
+    },
+    {
+      "protocol": "gb46750",
+      "mode": "random",
+      "serial": "MIXED_GB46750_01",
+      "physical_transport": "wifi",
+      "mac": "02:00:00:00:00:07",
+      "start_location": [23.1405, 113.2727],
+      "pilot_location": [23.1401, 113.2723],
+      "operator_altitude": 25.0,
+      "speed": 4.6,
+      "vertical_speed": 0.5,
+      "geodetic_altitude": 98.0,
+      "pressure_altitude": 108.0,
+      "height": 50.0,
+      "registration_mark": "UAS_MIXED_001",
+      "operation_category": 1,
+      "ua_classification": 0,
+      "station_location_type": 1,
+      "horizontal_accuracy": 11,
+      "vertical_accuracy": 5,
+      "speed_accuracy": 2,
+      "timestamp_accuracy": 4
+    },
+    {
+      "protocol": "gb42590",
+      "mode": "random",
+      "serial": "MIXED_GB42590_01",
+      "physical_transport": "wifi",
+      "mac": "02:00:00:00:00:09",
+      "start_location": [23.1406, 113.2628],
+      "pilot_location": [23.1402, 113.2624],
+      "operator_id": "GB-OP-MIXED-001",
+      "operator_altitude": 26.0,
+      "speed": 4.2,
+      "vertical_speed": 0.5,
+      "geodetic_altitude": 110.0,
+      "pressure_altitude": 108.0,
+      "height": 60.0
+    }
+  ]
+}

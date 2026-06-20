@@ -528,7 +528,14 @@ class NanBackend(TransportBackend):
             from drone_rid_spoofer.helpers import generate_wifi_mac
             return generate_wifi_mac()
 
-    def send_messages(self, drone: DroneState, messages: List[bytes]) -> None:
+    def send_messages(self, drone: DroneState, messages: List[bytes], protocol: str = "astm") -> None:
+        """Send ODID messages as a NAN Service Discovery Frame.
+
+        NAN only supports ASTM protocol; other protocols are ignored with a warning.
+        """
+        if protocol != "astm":
+            logger.warning(f"NAN does not support protocol '{protocol}', skipping send for {drone.serial.decode()}")
+            return
         """Send ODID messages as a NAN Service Discovery Frame.
 
         Builds a Message Pack from all messages, then sends it inside

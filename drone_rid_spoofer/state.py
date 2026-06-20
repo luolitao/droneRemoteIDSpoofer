@@ -23,7 +23,10 @@ class DroneState:
     waypoints: Optional[List[Tuple[int, int, int]]] = None
     waypoint_index: int = 0
     next_waypoint_time: Optional[datetime] = None
-    transport: Optional[str] = None  # per-drone transport override
+    transport: Optional[str] = None  # 保留原字段，但将被 physical_transport 替代
+    # 新增字段
+    protocol: Optional[str] = None          # 'astm', 'gb42590', 'gb46750'
+    physical_transport: Optional[str] = None  # 'wifi', 'ble', 'nan', 'wifi,ble' 等
     timestamp_offset: float = 0.0  # minutes to shift ASTM timestamp (negative = past)
     speed: float = 0.0              # horizontal speed (m/s)
     vertical_speed: float = 0.0     # vertical speed (m/s, + = climbing)

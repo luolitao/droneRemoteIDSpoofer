@@ -7,6 +7,7 @@ from typing import List
 from drone_rid_spoofer.helpers import ParseLocationAction, parse_location
 from drone_rid_spoofer.spoofer import DroneSpoofer
 from drone_rid_spoofer.transport.base import TransportBackend
+from drone_rid_spoofer.config_validator import validate_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
@@ -87,7 +88,7 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
     """Create transport backend instances based on configuration.
 
     Supports individual transports and combinations:
-      - "wifi", "ble", "nan", "gb", "gb46750" — single transport
+      - "wifi", "ble", "nan"  — single transport
       - "both" — WiFi Beacon + BLE
       - comma-separated list — any combination, e.g. "nan,ble" or "wifi,nan,gb"
     """
@@ -101,11 +102,19 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             from drone_rid_spoofer.transport.wifi import WifiBackend
             backends.append(WifiBackend(interface, ess=wifi_ess, channel=wifi_channel,
                                         beacon_interval=wifi_beacon_interval))
+<<<<<<< Updated upstream
 
+=======
+        elif t == "nan":
+            from drone_rid_spoofer.transport.nan import NanBackend
+            backends.append(NanBackend(interface, channel=nan_channel))
+        
+>>>>>>> Stashed changes
         elif t in ("ble", "both"):
             from drone_rid_spoofer.transport.ble import BleBackend
             backends.append(BleBackend(adapter=ble_adapter, advertising_interval_ms=ble_interval_ms))
 
+<<<<<<< Updated upstream
         elif t == "nan":
             from drone_rid_spoofer.transport.nan import NanBackend
             backends.append(NanBackend(interface, channel=nan_channel))
@@ -120,6 +129,8 @@ def create_backends(transport: str, interface: str, ble_adapter: str,
             backends.append(GB46750Backend(interface, channel=wifi_channel,
                                            beacon_interval=wifi_beacon_interval))
 
+=======
+>>>>>>> Stashed changes
     return backends
 
 
@@ -130,8 +141,18 @@ def main() -> None:
         config = {}
         if args.config:
             config = load_config(args.config)
+            # 新增：校验配置
+            errors = validate_config(config)
+            if errors:
+                print("Configuration validation errors:")
+                for err in errors:
+                    print(f"  - {err}")
+                sys.exit(1)
+
         config_global = config.get("global", {})
         args.drones_config = config.get("drones", [])
+
+
 
         if args.interface is None:
             args.interface = config_global.get("interface", "wlan1")
