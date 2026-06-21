@@ -1,0 +1,21 @@
+[project]
+name = "drone-rid-spoofer"
+version = "1.0.0"
+description = "Drone Remote ID spoofer"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "scapy>=2.4.5",
+    "pytest>=9.1.1",    # 测试依赖，但可放在 [project.optional-dependencies] 中
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["drone_rid_spoofer*"]
+exclude = ["tests*", "scenarios*"]   # 可选，排除测试和配置目录
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

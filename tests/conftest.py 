@@ -1,0 +1,35 @@
+# tests/conftest.py
+import pytest
+from drone_rid_spoofer.state import DroneState
+
+print("conftest.py loaded")
+
+@pytest.fixture
+def sample_drone():
+    """提供标准的无人机状态用于测试"""
+    return DroneState(
+        serial=b"TEST_SERIAL_01",
+        pilot_location=(231403000, 1132725000),  # 23.1403, 113.2725
+        lat=231405000,   # 23.1405
+        lng=1132727000,  # 113.2727
+        mac_address="02:00:00:00:00:01",
+        ble_address="02:00:00:00:00:02",
+        operator_id="OP-12345",
+        operator_altitude=25.0,
+        anchor_lat=231403000,
+        anchor_lng=1132725000,
+        speed=5.0,
+        vertical_speed=0.5,
+        geodetic_altitude=100.0,
+        pressure_altitude=102.0,
+        height=50.0,
+        direction=45.0,
+        registration_mark="UAS0001",
+        operation_category=1,
+        ua_classification=0,
+        station_location_type=1,
+        horizontal_accuracy=11,
+        vertical_accuracy=5,
+        speed_accuracy=2,
+        timestamp_accuracy=4,
+    )
